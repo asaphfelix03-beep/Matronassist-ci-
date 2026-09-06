@@ -1,8 +1,13 @@
 "use client"
 
-import { Bell, User, Wifi, WifiOff, LogOut } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useTheme } from "next-themes"
+import { Bell, KeyRound, LogOut, Moon, Sun, User } from "lucide-react"
+
+import { OfflineIndicator } from "@/components/offline-indicator"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect } from "react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,51 +16,48 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
-import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
+import { fetchAlerts, logout } from "@/lib/api-client"
+import type { SessionUser, SystemAlert } from "@/lib/types"
 
-export function Navbar({ role }: { role: string }) {
-  const [isOnline, setIsOnline] = useState(true)
-  const [notifications, setNotifications] = useState([
-    { id: "1", title: "Nouvelle patiente ajoutée", time: "Il y a 5min", unread: true },
-    { id: "2", title: "Consultation terminée", time: "Il y a 1h", unread: true },
-    { id: "3", title: "Rendez-vous rappel", time: "Il y a 2h", unread: false },
-  ])
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Administrateur",
+  matrone: "Matrone",
+  patiente: "Patiente",
+}
+
+export function Navbar({ user }: { user: SessionUser }) {
+  const [alerts, setAlerts] = useState<SystemAlert[]>([])
+  const [isMounted, setIsMounted] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+  const { resolvedTheme, setTheme } = useTheme()
+
+  // Le thème résolu n'est connu qu'après hydratation: on n'affiche l'icône
+  // correspondante qu'à ce moment, sinon le rendu serveur et client divergent.
+  useEffect(() => setIsMounted(true), [])
+
+  // Les alertes concernent le suivi d'un portefeuille de patientes: elles ne sont
+  // pas affichées dans l'espace patiente.
+  const showsAlerts = user.role === "admin" || user.role === "matrone"
 
   useEffect(() => {
-    setIsOnline(navigator.onLine)
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-    window.addEventListener("online", handleOnline)
-    window.addEventListener("offline", handleOffline)
-    return () => {
-      window.removeEventListener("online", handleOnline)
-      window.removeEventListener("offline", handleOffline)
+    if (!showsAlerts) return
+    fetchAlerts()
+      .then(setAlerts)
+      .catch(() => setAlerts([]))
+  }, [showsAlerts])
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout()
+    } catch {
+      // La session est de toute façon abandonnée côté client.
     }
-  }, [])
-
-  const markAsRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, unread: false } : n)))
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem("userRole")
-    localStorage.removeItem("userEmail")
-
-    toast({
-      title: "Déconnexion",
-      description: "Vous avez été déconnecté avec succès",
-    })
-
-    setTimeout(() => {
-      router.push("/login")
-    }, 500)
-  }
-
-  const unreadCount = notifications.filter((n) => n.unread).length
+    toast({ title: "Déconnexion", description: "À bientôt." })
+    router.replace("/login")
+    router.refresh()
+  }, [router, toast])
 
   return (
     <header className="bg-card border-b sticky top-0 z-50 px-4 h-16 flex items-center justify-between">
@@ -65,62 +67,72 @@ export function Navbar({ role }: { role: string }) {
       </div>
 
       <div className="flex items-center gap-3">
-        <div
-          className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${isOnline ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
-        >
-          {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-          <span className="sr-only sm:not-sr-only">{isOnline ? "En ligne" : "Hors ligne"}</span>
-        </div>
+        <OfflineIndicator />
+
+        {showsAlerts && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative" aria-label="Alertes">
+                <Bell className="w-5 h-5" />
+                {alerts.length > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                  >
+                    {alerts.length}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuLabel>Alertes de suivi</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <div className="max-h-[300px] overflow-y-auto">
+                {alerts.length === 0 ? (
+                  <p className="p-3 text-sm text-muted-foreground">Aucune alerte en cours.</p>
+                ) : (
+                  alerts.map((alert) => (
+                    <DropdownMenuItem key={alert.id} className="flex flex-col items-start gap-1 p-3">
+                      <div className="flex items-start justify-between w-full gap-2">
+                        <span className="text-sm font-medium">{alert.title}</span>
+                        <span
+                          className={`mt-1 w-2 h-2 shrink-0 rounded-full ${alert.severity === "error" ? "bg-destructive" : "bg-orange-400"}`}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground">{alert.detail}</span>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-                >
-                  {unreadCount}
-                </Badge>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <div className="max-h-[300px] overflow-y-auto">
-              {notifications.map((notif) => (
-                <DropdownMenuItem
-                  key={notif.id}
-                  className="flex flex-col items-start p-3 cursor-pointer"
-                  onClick={() => markAsRead(notif.id)}
-                >
-                  <div className="flex items-start justify-between w-full">
-                    <span className={`text-sm ${notif.unread ? "font-bold" : ""}`}>{notif.title}</span>
-                    {notif.unread && <div className="w-2 h-2 bg-primary rounded-full" />}
-                  </div>
-                  <span className="text-xs text-muted-foreground mt-1">{notif.time}</span>
-                </DropdownMenuItem>
-              ))}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label="Mon compte">
               <User className="w-5 h-5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Mon Compte</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="flex flex-col gap-0.5">
+              <span>{user.name}</span>
+              <span className="text-xs font-normal text-muted-foreground">{user.email}</span>
+              <span className="text-xs font-normal text-muted-foreground">{ROLE_LABELS[user.role] ?? user.role}</span>
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="w-4 h-4 mr-2" />
-              Profil
+            <DropdownMenuItem onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
+              {isMounted && resolvedTheme === "dark" ? (
+                <Sun className="w-4 h-4 mr-2" />
+              ) : (
+                <Moon className="w-4 h-4 mr-2" />
+              )}
+              {isMounted && resolvedTheme === "dark" ? "Thème clair" : "Thème sombre"}
             </DropdownMenuItem>
-            <DropdownMenuItem>Paramètres</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/change-password")}>
+              <KeyRound className="w-4 h-4 mr-2" />
+              Changer le mot de passe
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="text-destructive">
               <LogOut className="w-4 h-4 mr-2" />

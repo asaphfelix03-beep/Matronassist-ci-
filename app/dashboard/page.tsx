@@ -1,52 +1,47 @@
-"use client"
+import { redirect } from "next/navigation"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Navbar } from "@/components/navbar"
-import type { UserRole } from "@/lib/types"
 import { AdminDashboard } from "@/components/admin-dashboard"
+import { CallProvider } from "@/components/call-center"
 import { MatroneDashboard } from "@/components/matrone-dashboard"
+import { Navbar } from "@/components/navbar"
 import { PatienteDashboard } from "@/components/patiente-dashboard"
+import { getSessionUser } from "@/lib/session"
 
-export default function DashboardPage() {
-  const [role, setRole] = useState<UserRole | null>(null)
-  const router = useRouter()
+export const dynamic = "force-dynamic"
 
-  useEffect(() => {
-    const storedRole = localStorage.getItem("userRole") as UserRole
-    if (!storedRole) {
-      router.push("/login")
-    } else {
-      setRole(storedRole)
-    }
-  }, [router])
+const GREETINGS: Record<string, string> = {
+  admin: "Voici l'état du réseau aujourd'hui.",
+  matrone: "Voici le suivi de vos patientes aujourd'hui.",
+  patiente: "Voici le suivi de votre grossesse.",
+}
 
-  if (!role) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    )
-  }
+/**
+ * Garde d'accès côté serveur: la session est vérifiée avant tout rendu, si bien
+ * qu'aucune donnée n'est envoyée au navigateur sans droit correspondant.
+ */
+export default async function DashboardPage() {
+  const user = await getSessionUser()
+
+  if (!user) redirect("/login")
+  if (user.mustChangePassword) redirect("/change-password")
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <Navbar role={role} />
+    <CallProvider role={user.role}>
+      <div className="flex flex-col min-h-screen bg-background">
+        <Navbar user={user} />
 
-      <div className="p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6">
-        {/* Welcome Section */}
-        <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-bold">
-            Bonjour, {localStorage.getItem("userEmail")?.split("@")[0] || "Utilisateur"}
-          </h2>
-          <p className="text-muted-foreground">Voici le suivi de vos activités aujourd'hui.</p>
+        {/* La marge basse dégage la barre de navigation fixe du mobile. */}
+        <div className="p-4 pb-24 md:p-8 max-w-5xl mx-auto w-full space-y-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-2xl font-bold">Bonjour, {user.name}</h2>
+            <p className="text-muted-foreground">{GREETINGS[user.role]}</p>
+          </div>
+
+          {user.role === "admin" && <AdminDashboard />}
+          {user.role === "matrone" && <MatroneDashboard />}
+          {user.role === "patiente" && <PatienteDashboard patientId={user.patientId} />}
         </div>
-
-        {/* Role-based Dashboard content */}
-        {role === "matrone" && <MatroneDashboard />}
-        {role === "patiente" && <PatienteDashboard />}
-        {role === "admin" && <AdminDashboard />}
       </div>
-    </div>
+    </CallProvider>
   )
 }

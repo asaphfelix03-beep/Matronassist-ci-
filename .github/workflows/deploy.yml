@@ -1,44 +1,58 @@
-﻿name: Deploy to Vercel
+name: Deploy to Vercel
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Exposé en variable d'environnement: le contexte `secrets` n'est pas
+    # utilisable dans une condition `if`, contrairement à `env`.
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
+          cache: npm
 
+      # `postinstall` génère le client Prisma (sans accès à la base).
       - name: Install deps
         run: npm ci
 
-      - name: Generate Prisma client (production schema)
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npx prisma generate --schema=prisma/schema.prod.prisma
+      - name: Typecheck
+        run: npx tsc --noEmit
 
-      - name: Push schema to production DB
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npx prisma db push --schema=prisma/schema.prod.prisma
+      - name: Lint
+        run: npm run lint
 
       - name: Build
         run: npm run build
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
+      # Les migrations sont appliquées avant la mise en ligne, pour que le nouveau
+      # code ne rencontre jamais un schéma antérieur.
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      # La mise en ligne n'a lieu que si le jeton Vercel est configuré. Sans lui,
+      # le workflow reste utile: il valide typecheck, lint, build et migrations.
       - name: Deploy to Vercel
+        if: env.VERCEL_TOKEN != ''
         uses: amondnet/vercel-action@v20
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: "--prod"
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: "Jeton Vercel absent"
+        if: env.VERCEL_TOKEN == ''
+        run: echo "::notice::Validation terminee. Ajoutez le secret VERCEL_TOKEN pour que ce workflow deploie aussi en production."

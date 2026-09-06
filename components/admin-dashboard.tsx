@@ -2,224 +2,234 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  Activity,
+  AlertCircle,
+  Copy,
+  KeyRound,
+  LayoutDashboard,
+  MapPin,
+  Plus,
+  ShieldCheck,
+  Stethoscope,
+  Trash2,
+  Users,
+} from "lucide-react"
+
+import { DashboardTabs } from "@/components/dashboard-tabs"
+
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { MOCK_STATS, MOCK_SYSTEM_ALERTS } from "@/lib/mock-data"
-import { loadMatroneAccounts, saveMatroneAccounts } from "@/lib/storage"
-import type { MatroneAccount } from "@/lib/types"
-import {
-  Users,
-  ShieldCheck,
-  BellRing,
-  Activity,
-  Plus,
-  ArrowRight,
-  AlertCircle,
-  FileBarChart,
-  ClipboardList,
-  MapPin,
-  Download,
-} from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Switch } from "@/components/ui/switch"
-import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
+import {
+  createMatrone,
+  deleteMatrone,
+  fetchAlerts,
+  fetchMatrones,
+  fetchStats,
+  resetMatronePassword,
+  updateMatrone,
+} from "@/lib/api-client"
+import { formatDate } from "@/lib/pregnancy"
+import type { DashboardStats, MatroneAccount, SystemAlert } from "@/lib/types"
+
+function describe(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+/** Identifiants provisoires affichés une seule fois, à transmettre hors ligne. */
+interface IssuedCredentials {
+  name: string
+  email: string
+  password: string
+}
 
 export function AdminDashboard() {
   const [matrones, setMatrones] = useState<MatroneAccount[]>([])
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [alerts, setAlerts] = useState(MOCK_SYSTEM_ALERTS)
-  const [isNewMatroneDialogOpen, setIsNewMatroneDialogOpen] = useState(false)
-  const [selectedReport, setSelectedReport] = useState<string | null>(null)
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [alerts, setAlerts] = useState<SystemAlert[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const [isNewMatroneOpen, setIsNewMatroneOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [credentials, setCredentials] = useState<IssuedCredentials | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<MatroneAccount | null>(null)
+
   const { toast } = useToast()
 
-  useEffect(() => {
-    // Load from localStorage as fallback, then sync with backend
-    setMatrones(loadMatroneAccounts())
-    setIsLoaded(true)
-
-    // fetch real data from API (if available)
-    ;(async () => {
-      try {
-        const res = await fetch('/api/matrones')
-        if (res.ok) {
-          const json = await res.json()
-          if (json?.success && Array.isArray(json.data)) {
-          setMatrones(json.data as MatroneAccount[])
-          }
-        }
-      } catch (err) {
-        // network error -> keep local data
-        console.warn('Could not fetch matrones from API', err)
-      }
-    })()
-  }, [])
-
-  useEffect(() => {
-    if (isLoaded) {
-      saveMatroneAccounts(matrones)
-    }
-  }, [matrones, isLoaded])
-
-  const toggleMatroneStatus = async (id: string) => {
-    const updated = matrones.map((m) =>
-      m.id === id
-        ? {
-            ...m,
-            status: m.status === "active" ? "inactive" : "active",
-            lastActive: m.status === "active" ? "Maintenant" : "Il y a quelques instants",
-          }
-        : m,
-    )
-    setMatrones(updated as MatroneAccount[])
-
+  const loadData = useCallback(async () => {
     try {
-      const target = updated.find((m) => m.id === id)
-      const res = await fetch(`/api/matrones/${id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: target?.status, lastActive: target?.lastActive }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json?.success) throw new Error(json?.message || 'API error')
-      toast({ title: 'Statut modifié', description: `${json.data.name} est maintenant ${json.data.status}` })
+      const [nextMatrones, nextStats, nextAlerts] = await Promise.all([fetchMatrones(), fetchStats(), fetchAlerts()])
+      setMatrones(nextMatrones)
+      setStats(nextStats)
+      setAlerts(nextAlerts)
     } catch (err) {
-      // rollback on error
-      setMatrones(loadMatroneAccounts())
-      toast({ title: 'Erreur', description: `Impossible de modifier le statut: ${(err as any)?.message ?? String(err)}` })
+      toast({ title: "Chargement impossible", description: describe(err) })
+    } finally {
+      setIsLoading(false)
     }
-  }
+  }, [toast])
 
-  const markAllAlertsAsRead = () => {
-    setAlerts([])
-    toast({
-      title: "Alertes marquées comme lues",
-      description: "Toutes les alertes ont été marquées comme lues",
-    })
-  }
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
-  const resolveAlert = (id: string) => {
-    setAlerts((prev) => prev.filter((a) => a.id !== id))
-    toast({
-      title: "Alerte résolue",
-      description: "L'alerte a été traitée avec succès",
-    })
-  }
+  const regionalData = useMemo(() => {
+    const byRegion = new Map<string, { region: string; matrones: number; patients: number }>()
 
-  const handleCreateMatrone = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const formData = new FormData(e.target as HTMLFormElement)
-    const name = (formData.get("name") as string).trim()
-    const region = formData.get("region") as string
-    const email = (formData.get("email") as string)?.trim()
-    const phone = (formData.get("phone") as string)?.trim()
-
-    if (!name || !region) {
-      toast({
-        title: "Informations manquantes",
-        description: "Le nom et la région sont obligatoires pour créer un compte matrone.",
-      })
-      return
+    for (const matrone of matrones) {
+      const entry = byRegion.get(matrone.region) ?? { region: matrone.region, matrones: 0, patients: 0 }
+      entry.matrones += 1
+      entry.patients += matrone.patients
+      byRegion.set(matrone.region, entry)
     }
 
-    const newMatrone: MatroneAccount = {
-      id: `m${matrones.length + 1}`,
-      name,
-      region,
-      email: email || undefined,
-      phone: phone || undefined,
-      patients: 0,
-      status: "active",
-      lastActive: "Maintenant",
-      createdAt: new Date().toISOString(),
-    }
+    const rows = [...byRegion.values()].sort(
+      (a, b) => b.patients - a.patients || a.region.localeCompare(b.region, "fr"),
+    )
+    const busiest = Math.max(1, ...rows.map((row) => row.patients))
 
-    // Optimistically update UI
-    setMatrones((prev) => [...prev, newMatrone])
+    return rows.map((row) => ({ ...row, share: Math.round((row.patients / busiest) * 100) }))
+  }, [matrones])
+
+  const toggleAccount = async (matrone: MatroneAccount) => {
+    const nextState = !matrone.isActive
+    setMatrones((prev) => prev.map((m) => (m.id === matrone.id ? { ...m, isActive: nextState } : m)))
 
     try {
-      const res = await fetch('/api/matrones', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newMatrone),
+      const updated = await updateMatrone(matrone.id, { isActive: nextState })
+      setMatrones((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
+      toast({
+        title: nextState ? "Compte activé" : "Compte désactivé",
+        description: nextState
+          ? `${updated.name} peut à nouveau se connecter.`
+          : `${updated.name} a été déconnectée de toutes ses sessions.`,
       })
-      const json = await res.json()
-      if (res.ok && json?.success) {
-        // replace temp item with persisted item (contains proper id)
-      const persisted = json.data as MatroneAccount
-      setMatrones((prev) => prev.map((p) => (p === newMatrone ? persisted : p)))
-      toast({ title: 'Matrone ajoutée', description: `${persisted.name} a été ajoutée avec succès` })
-      } else {
-      throw new Error(json?.message || 'API error')
-      }
-    } catch (err: any) {
-      // rollback
-      setMatrones((prev) => prev.filter((p) => p !== newMatrone))
-      toast({ title: 'Erreur', description: `Impossible de créer la matrone: ${err?.message ?? String(err)}` })
-    } finally {
-      setIsNewMatroneDialogOpen(false)
+    } catch (err) {
+      setMatrones((prev) => prev.map((m) => (m.id === matrone.id ? { ...m, isActive: matrone.isActive } : m)))
+      toast({ title: "Erreur", description: describe(err) })
     }
   }
 
-  const regionalData = [
-    { region: "Abidjan", matrones: 5, coverage: 85 },
-    { region: "Bouaké", matrones: 2, coverage: 60 },
-    { region: "Yamoussoukro", matrones: 3, coverage: 75 },
-    { region: "San-Pédro", matrones: 1, coverage: 40 },
-    { region: "Daloa", matrones: 1, coverage: 45 },
-  ]
+  const handleCreateMatrone = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = e.currentTarget
+    const formData = new FormData(form)
+
+    setIsSubmitting(true)
+    try {
+      const { matrone, temporaryPassword } = await createMatrone({
+        name: (formData.get("name") as string).trim(),
+        email: (formData.get("email") as string).trim(),
+        region: (formData.get("region") as string).trim(),
+        phone: ((formData.get("phone") as string) || "").trim() || null,
+      })
+
+      setMatrones((prev) => [...prev, matrone])
+      setStats((prev) =>
+        prev ? { ...prev, totalMatrones: prev.totalMatrones + 1, activeMatrones: prev.activeMatrones + 1 } : prev,
+      )
+      form.reset()
+      setIsNewMatroneOpen(false)
+      setCredentials({ name: matrone.name, email: matrone.email, password: temporaryPassword })
+    } catch (err) {
+      toast({ title: "Création impossible", description: describe(err) })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleResetPassword = async (matrone: MatroneAccount) => {
+    try {
+      const { temporaryPassword } = await resetMatronePassword(matrone.id)
+      setMatrones((prev) => prev.map((m) => (m.id === matrone.id ? { ...m, mustChangePassword: true } : m)))
+      setCredentials({ name: matrone.name, email: matrone.email, password: temporaryPassword })
+    } catch (err) {
+      toast({ title: "Réinitialisation impossible", description: describe(err) })
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!pendingDelete) return
+
+    try {
+      await deleteMatrone(pendingDelete.id)
+      setMatrones((prev) => prev.filter((m) => m.id !== pendingDelete.id))
+      toast({ title: "Compte supprimé", description: `${pendingDelete.name} n'a plus accès à la plateforme.` })
+      await loadData()
+    } catch (err) {
+      toast({ title: "Suppression impossible", description: describe(err) })
+    } finally {
+      setPendingDelete(null)
+    }
+  }
+
+  const copyCredentials = async () => {
+    if (!credentials) return
+    try {
+      await navigator.clipboard.writeText(`${credentials.email} / ${credentials.password}`)
+      toast({ title: "Copié", description: "Identifiants copiés dans le presse-papiers." })
+    } catch {
+      toast({ title: "Copie impossible", description: "Notez les identifiants manuellement." })
+    }
+  }
 
   return (
     <div className="space-y-6">
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 rounded-xl h-12 bg-muted/50 p-1">
-          <TabsTrigger value="overview" className="rounded-lg font-bold">
-            Stats
-          </TabsTrigger>
-          <TabsTrigger value="matrones" className="rounded-lg font-bold">
-            Matrones
-          </TabsTrigger>
-          <TabsTrigger value="alerts" className="rounded-lg font-bold">
-            Alertes
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="rounded-lg font-bold">
-            Rapports
-          </TabsTrigger>
-        </TabsList>
+        <DashboardTabs
+          tabs={[
+            { value: "overview", label: "Réseau", icon: LayoutDashboard },
+            { value: "matrones", label: "Comptes", icon: ShieldCheck },
+            { value: "alerts", label: "Alertes", icon: AlertCircle, badge: alerts.length },
+          ]}
+        />
 
         <TabsContent value="overview" className="space-y-6 pt-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="bg-primary/5 border-primary/20 shadow-sm">
               <CardContent className="p-4 flex flex-col items-center text-center">
                 <ShieldCheck className="w-8 h-8 text-primary mb-2" />
-                <div className="text-2xl font-bold">{matrones.length}</div>
-                <div className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Matrones</div>
+                <div className="text-2xl font-bold">
+                  {isLoading ? "…" : `${stats?.activeMatrones ?? 0}/${stats?.totalMatrones ?? 0}`}
+                </div>
+                <div className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">
+                  Matrones actives
+                </div>
               </CardContent>
             </Card>
             <Card className="bg-secondary/5 border-secondary/20 shadow-sm">
               <CardContent className="p-4 flex flex-col items-center text-center">
                 <Users className="w-8 h-8 text-secondary-foreground mb-2" />
-                <div className="text-2xl font-bold">{MOCK_STATS.totalPatients}</div>
+                <div className="text-2xl font-bold">{isLoading ? "…" : (stats?.totalPatients ?? 0)}</div>
                 <div className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Patientes</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-destructive/5 border-destructive/20 shadow-sm">
-              <CardContent className="p-4 flex flex-col items-center text-center">
-                <BellRing className="w-8 h-8 text-destructive mb-2" />
-                <div className="text-2xl font-bold text-destructive">{alerts.length}</div>
-                <div className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Alertes</div>
               </CardContent>
             </Card>
             <Card className="bg-accent/5 border-accent/20 shadow-sm">
               <CardContent className="p-4 flex flex-col items-center text-center">
-                <Activity className="w-8 h-8 text-accent-foreground mb-2" />
-                <div className="text-2xl font-bold">{MOCK_STATS.systemHealth}</div>
-                <div className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Santé</div>
+                <Stethoscope className="w-8 h-8 text-accent-foreground mb-2" />
+                <div className="text-2xl font-bold">{isLoading ? "…" : (stats?.consultationsThisMonth ?? 0)}</div>
+                <div className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">
+                  Consultations ce mois
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-destructive/5 border-destructive/20 shadow-sm">
+              <CardContent className="p-4 flex flex-col items-center text-center">
+                <Activity className="w-8 h-8 text-destructive mb-2" />
+                <div className="text-2xl font-bold text-destructive">
+                  {isLoading ? "…" : (stats?.patientsUnderWatch ?? 0)}
+                </div>
+                <div className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">
+                  Sous surveillance
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -229,112 +239,121 @@ export function AdminDashboard() {
               <CardTitle className="text-lg">Distribution Régionale</CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="space-y-4">
-                {regionalData.map((region) => (
-                  <div key={region.region} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-primary" />
-                        <span className="font-medium">{region.region}</span>
+              {regionalData.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Aucun compte matrone pour le moment. Créez-en un dans l'onglet « Comptes ».
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {regionalData.map((region) => (
+                    <div key={region.region} className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-primary" />
+                          <span className="font-medium">{region.region}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline">
+                            {region.matrones} matrone{region.matrones > 1 ? "s" : ""}
+                          </Badge>
+                          <span className="text-muted-foreground">{region.patients} patientes</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline">{region.matrones} matrones</Badge>
-                        <span className="text-muted-foreground">{region.coverage}%</span>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary transition-all" style={{ width: `${region.share}%` }} />
                       </div>
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-primary transition-all" style={{ width: `${region.coverage}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="matrones" className="space-y-4 pt-4">
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-xl font-bold tracking-tight">Gestion des Comptes</h3>
-            <Button size="sm" className="gap-2 rounded-xl px-4" onClick={() => setIsNewMatroneDialogOpen(true)}>
+            <h3 className="text-xl font-bold tracking-tight">Comptes Matrones</h3>
+            <Button size="sm" className="gap-2 rounded-xl px-4" onClick={() => setIsNewMatroneOpen(true)}>
               <Plus className="w-4 h-4" /> Nouvelle Matrone
             </Button>
           </div>
-          <div className="space-y-3">
-            {matrones.map((m) => (
-              <Card key={m.id} className="group hover:border-primary/50 transition-colors">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center font-bold text-primary text-xl">
-                      {m.name.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="font-bold text-lg">{m.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {m.region} - {m.patients} patientes suivies
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {m.email ?? m.phone ?? "Pas de contact"}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <div className="hidden sm:flex flex-col items-end">
-                      <Badge variant={m.status === "active" ? "secondary" : "outline"} className="mb-1 font-bold">
-                        {m.status === "active" ? "ACTIF" : "INACTIF"}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground">{m.lastActive}</span>
-                      <span className="text-[10px] text-muted-foreground">Créé le {new Date(m.createdAt).toLocaleDateString("fr-FR")}</span>
-                    </div>
-                    <Switch checked={m.status === "active"} onCheckedChange={() => toggleMatroneStatus(m.id)} />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
 
-        <TabsContent value="alerts" className="space-y-4 pt-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-xl font-bold tracking-tight">Alertes Systèmes</h3>
-            <Button variant="outline" size="sm" onClick={markAllAlertsAsRead} disabled={alerts.length === 0}>
-              Tout marquer comme lu
-            </Button>
-          </div>
-          {alerts.length === 0 ? (
+          {isLoading ? (
+            <p className="px-1 text-sm text-muted-foreground">Chargement des comptes…</p>
+          ) : matrones.length === 0 ? (
             <Card>
-              <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 rounded-full bg-green-100 mx-auto mb-4 flex items-center justify-center">
-                  <ShieldCheck className="w-8 h-8 text-green-600" />
-                </div>
-                <p className="text-lg font-medium">Aucune alerte en cours</p>
-                <p className="text-sm text-muted-foreground">Le système fonctionne normalement</p>
+              <CardContent className="p-8 text-center space-y-3">
+                <ShieldCheck className="w-10 h-10 mx-auto text-muted-foreground" />
+                <p className="font-medium">Aucun compte matrone</p>
+                <p className="text-sm text-muted-foreground">
+                  Créez le premier compte pour que les matrones puissent suivre leurs patientes.
+                </p>
+                <Button className="gap-2" onClick={() => setIsNewMatroneOpen(true)}>
+                  <Plus className="w-4 h-4" /> Nouvelle matrone
+                </Button>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-3">
-              {alerts.map((alert) => (
-                <Card
-                  key={alert.id}
-                  className={`border-l-4 ${alert.type === "error" ? "border-l-destructive shadow-destructive/5" : "border-l-orange-400 shadow-orange-500/5"}`}
-                >
-                  <CardContent className="p-4 flex items-start gap-4">
-                    <div
-                      className={`p-2 rounded-lg ${alert.type === "error" ? "bg-destructive/10 text-destructive" : "bg-orange-100 text-orange-600"}`}
-                    >
-                      <AlertCircle className="w-5 h-5" />
+              {matrones.map((matrone) => (
+                <Card key={matrone.id} className="group hover:border-primary/50 transition-colors">
+                  <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="w-12 h-12 shrink-0 rounded-2xl bg-muted flex items-center justify-center font-bold text-primary text-xl">
+                        {matrone.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-lg truncate">{matrone.name}</div>
+                        <div className="text-sm text-muted-foreground truncate">{matrone.email}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {matrone.region} · {matrone.patients} patiente{matrone.patients > 1 ? "s" : ""}
+                          {matrone.phone ? ` · ${matrone.phone}` : ""}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <Badge variant={matrone.isActive ? "secondary" : "outline"} className="font-bold">
+                            {matrone.isActive ? "ACTIF" : "DÉSACTIVÉ"}
+                          </Badge>
+                          {matrone.mustChangePassword && (
+                            <Badge
+                              variant="outline"
+                              className="text-orange-600 border-orange-300 dark:text-orange-400 dark:border-orange-800"
+                            >
+                              Mot de passe provisoire
+                            </Badge>
+                          )}
+                          <span className="text-[11px] text-muted-foreground">
+                            {matrone.lastLoginAt
+                              ? `Dernière connexion le ${formatDate(matrone.lastLoginAt)}`
+                              : "Jamais connectée"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="font-bold text-lg leading-tight">{alert.message}</div>
-                      <div className="text-xs text-muted-foreground mt-1">Incident détecté à {alert.time}</div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Réinitialiser le mot de passe"
+                        onClick={() => handleResetPassword(matrone)}
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Supprimer le compte"
+                        className="text-destructive"
+                        onClick={() => setPendingDelete(matrone)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                      <Switch
+                        checked={matrone.isActive}
+                        onCheckedChange={() => toggleAccount(matrone)}
+                        aria-label={`Activer le compte de ${matrone.name}`}
+                      />
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-lg h-8 px-2"
-                      onClick={() => resolveAlert(alert.id)}
-                    >
-                      Réparer
-                    </Button>
                   </CardContent>
                 </Card>
               ))}
@@ -342,195 +361,134 @@ export function AdminDashboard() {
           )}
         </TabsContent>
 
-        <TabsContent value="reports" className="space-y-4 pt-4">
+        <TabsContent value="alerts" className="space-y-4 pt-4">
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-xl font-bold tracking-tight">Rapports et Analyses</h3>
+            <h3 className="text-xl font-bold tracking-tight">Alertes de suivi</h3>
+            <Button variant="outline" size="sm" onClick={loadData}>
+              Actualiser
+            </Button>
           </div>
-          <div className="grid grid-cols-1 gap-3">
-            {[
-              {
-                id: "report-1",
-                name: "Rapport Mensuel Santé Maternelle",
-                desc: "Données consolidées d'octobre 2023",
-                icon: FileBarChart,
-                stats: { consultations: 245, alertes: 12, satisfaction: "94%" },
-              },
-              {
-                id: "report-2",
-                name: "Performance du Réseau de Matrones",
-                desc: "Analyse d'efficacité par district - Q3",
-                icon: ClipboardList,
-                stats: { matrones: 12, patientsMoyenne: 9, efficacite: "88%" },
-              },
-              {
-                id: "report-3",
-                name: "Analyse des Alertes Critiques",
-                desc: "Corrélation entre zones et incidents",
-                icon: Activity,
-                stats: { total: 48, resolues: 45, enCours: 3 },
-              },
-            ].map((report) => (
-              <Card
-                key={report.id}
-                className="hover:bg-muted/10 cursor-pointer group transition-colors"
-                onClick={() => setSelectedReport(report.id)}
-              >
-                <CardContent className="p-5 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
-                      <report.icon className="w-6 h-6" />
+          <p className="px-1 text-xs text-muted-foreground">
+            Ces alertes sont recalculées à chaque consultation de la page à partir des dossiers réels : constantes hors
+            seuils, rendez-vous passés non clôturés et suivis sans consultation depuis plus de 60 jours.
+          </p>
+
+          {isLoading ? (
+            <p className="px-1 text-sm text-muted-foreground">Chargement…</p>
+          ) : alerts.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-950 mx-auto mb-4 flex items-center justify-center">
+                  <ShieldCheck className="w-8 h-8 text-green-600 dark:text-green-400" />
+                </div>
+                <p className="text-lg font-medium">Aucune alerte en cours</p>
+                <p className="text-sm text-muted-foreground">Tous les suivis sont à jour.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {alerts.map((alert) => (
+                <Card
+                  key={alert.id}
+                  className={`border-l-4 ${alert.severity === "error" ? "border-l-destructive" : "border-l-orange-400"}`}
+                >
+                  <CardContent className="p-4 flex items-start gap-4">
+                    <div
+                      className={`p-2 rounded-lg ${
+                        alert.severity === "error"
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-300"
+                      }`}
+                    >
+                      <AlertCircle className="w-5 h-5" />
                     </div>
-                    <div>
-                      <div className="font-bold text-lg">{report.name}</div>
-                      <div className="text-sm text-muted-foreground">{report.desc}</div>
+                    <div className="flex-1">
+                      <div className="font-bold leading-tight">{alert.title}</div>
+                      <div className="text-sm text-muted-foreground mt-1">{alert.detail}</div>
                     </div>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isNewMatroneDialogOpen} onOpenChange={setIsNewMatroneDialogOpen}>
+      <Dialog open={isNewMatroneOpen} onOpenChange={setIsNewMatroneOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ajouter une Nouvelle Matrone</DialogTitle>
+            <DialogTitle>Ajouter une Matrone</DialogTitle>
+            <DialogDescription>
+              Un mot de passe provisoire sera généré. La matrone devra le changer à sa première connexion.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateMatrone} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nom complet *</Label>
-              <Input id="name" name="name" placeholder="Ex: Fatou Koné" required />
+              <Label htmlFor="matrone-name">Nom complet *</Label>
+              <Input id="matrone-name" name="name" required placeholder="Ex: Fatou Koné" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="region">Région *</Label>
-              <Select name="region" required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une région" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Abidjan">Abidjan</SelectItem>
-                  <SelectItem value="Bouaké">Bouaké</SelectItem>
-                  <SelectItem value="Yamoussoukro">Yamoussoukro</SelectItem>
-                  <SelectItem value="San-Pédro">San-Pédro</SelectItem>
-                  <SelectItem value="Daloa">Daloa</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="matrone-email">Email professionnel *</Label>
+              <Input id="matrone-email" name="email" type="email" required placeholder="matrone@structure.ci" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Téléphone</Label>
-              <Input id="phone" name="phone" type="tel" placeholder="+225 07 12 34 56 78" />
+              <Label htmlFor="matrone-region">Région / district *</Label>
+              <Input id="matrone-region" name="region" required placeholder="Ex: Abidjan" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" placeholder="matrone@example.com" />
+              <Label htmlFor="matrone-phone">Téléphone</Label>
+              <Input id="matrone-phone" name="phone" type="tel" placeholder="+225 07 12 34 56 78" />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsNewMatroneDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setIsNewMatroneOpen(false)}>
                 Annuler
               </Button>
-              <Button type="submit">Créer le compte</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Création…" : "Créer le compte"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={credentials !== null} onOpenChange={(open) => !open && setCredentials(null)}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Détails du Rapport</DialogTitle>
+            <DialogTitle>Identifiants de {credentials?.name}</DialogTitle>
+            <DialogDescription>
+              Ce mot de passe n'est affiché qu'une seule fois : il n'est stocké que sous forme hachée. Transmettez-le
+              par un canal sûr.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {selectedReport === "report-1" && (
-              <>
-                <div className="grid grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <div className="text-2xl font-bold text-primary">245</div>
-                      <div className="text-xs text-muted-foreground">Consultations</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <div className="text-2xl font-bold text-destructive">12</div>
-                      <div className="text-xs text-muted-foreground">Alertes</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <div className="text-2xl font-bold text-green-600">94%</div>
-                      <div className="text-xs text-muted-foreground">Satisfaction</div>
-                    </CardContent>
-                  </Card>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Rapport mensuel consolidé des activités de santé maternelle sur l'ensemble du réseau.
-                </p>
-              </>
-            )}
-            {selectedReport === "report-2" && (
-              <>
-                <div className="grid grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <div className="text-2xl font-bold text-primary">12</div>
-                      <div className="text-xs text-muted-foreground">Matrones</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <div className="text-2xl font-bold text-secondary-foreground">9</div>
-                      <div className="text-xs text-muted-foreground">Patientes/Matrone</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <div className="text-2xl font-bold text-green-600">88%</div>
-                      <div className="text-xs text-muted-foreground">Efficacité</div>
-                    </CardContent>
-                  </Card>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Analyse de performance des matrones par district avec indicateurs d'efficacité et de couverture.
-                </p>
-              </>
-            )}
-            {selectedReport === "report-3" && (
-              <>
-                <div className="grid grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <div className="text-2xl font-bold text-primary">48</div>
-                      <div className="text-xs text-muted-foreground">Total</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <div className="text-2xl font-bold text-green-600">45</div>
-                      <div className="text-xs text-muted-foreground">Résolues</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <div className="text-2xl font-bold text-destructive">3</div>
-                      <div className="text-xs text-muted-foreground">En cours</div>
-                    </CardContent>
-                  </Card>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Corrélation géographique des alertes critiques avec analyse des zones à risque et recommandations.
-                </p>
-              </>
-            )}
+          <div className="space-y-2 rounded-lg border bg-muted/40 p-4 font-mono text-sm">
+            <div className="break-all">{credentials?.email}</div>
+            <div className="text-lg font-bold tracking-wider break-all">{credentials?.password}</div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedReport(null)}>
-              Fermer
+            <Button variant="outline" className="gap-2" onClick={copyCredentials}>
+              <Copy className="w-4 h-4" />
+              Copier
             </Button>
-            <Button className="gap-2">
-              <Download className="w-4 h-4" />
-              Télécharger PDF
+            <Button onClick={() => setCredentials(null)}>J'ai noté</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer le compte de {pendingDelete?.name} ?</DialogTitle>
+            <DialogDescription>
+              L'accès est définitivement supprimé. Un compte suivant encore des patientes ne peut pas être supprimé :
+              désactivez-le ou réaffectez ses dossiers.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDelete(null)}>
+              Annuler
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Supprimer
             </Button>
           </DialogFooter>
         </DialogContent>

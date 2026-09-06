@@ -1,26 +1,36 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Heart, ShieldCheck, Baby } from "lucide-react"
-import type { UserRole } from "@/lib/types"
+import { Heart, Loader2 } from "lucide-react"
+import { login } from "@/lib/api-client"
 
 export default function LoginPage() {
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
 
-  const handleLogin = () => {
-    if (selectedRole && email && password) {
-      // Store role in localStorage for demo
-      localStorage.setItem("userRole", selectedRole)
-      localStorage.setItem("userEmail", email)
-      router.push("/dashboard")
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setIsSubmitting(true)
+
+    try {
+      const user = await login(email, password)
+      // Un mot de passe provisoire doit être remplacé avant tout accès aux données.
+      router.replace(user.mustChangePassword ? "/change-password" : "/dashboard")
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Connexion impossible")
+      setIsSubmitting(false)
     }
   }
 
@@ -35,56 +45,23 @@ export default function LoginPage() {
           <p className="text-muted-foreground">Suivi Maternel Connecté</p>
         </div>
 
-        {!selectedRole ? (
-          <Card className="border-2">
-            <CardHeader>
-              <CardTitle>Choisissez votre profil</CardTitle>
-              <CardDescription>Sélectionnez votre rôle pour vous connecter</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                variant="outline"
-                className="w-full h-24 flex-col gap-3 text-lg border-2 hover:border-primary hover:bg-primary/5 bg-transparent group"
-                onClick={() => setSelectedRole("admin")}
-              >
-                <ShieldCheck className="w-8 h-8 text-primary group-hover:scale-110 transition-transform" />
-                <span className="font-bold">Administrateur</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full h-24 flex-col gap-3 text-lg border-2 hover:border-secondary hover:bg-secondary/5 bg-transparent group"
-                onClick={() => setSelectedRole("matrone")}
-              >
-                <Heart className="w-8 h-8 text-secondary-foreground group-hover:scale-110 transition-transform" />
-                <span className="font-bold">Matrone</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full h-24 flex-col gap-3 text-lg border-2 hover:border-accent hover:bg-accent/5 bg-transparent group"
-                onClick={() => setSelectedRole("patiente")}
-              >
-                <Baby className="w-8 h-8 text-accent-foreground group-hover:scale-110 transition-transform" />
-                <span className="font-bold">Patiente</span>
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="border-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <CardHeader>
-              <div className="flex items-center gap-3 mb-2">
-                <Button variant="ghost" size="sm" onClick={() => setSelectedRole(null)} className="h-8 px-2">
-                  ← Retour
-                </Button>
-              </div>
-              <CardTitle className="capitalize text-2xl">Espace {selectedRole}</CardTitle>
-              <CardDescription>Entrez vos identifiants pour accéder au tableau de bord</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        <Card className="border-2">
+          <CardHeader>
+            <CardTitle>Connexion</CardTitle>
+            <CardDescription>
+              Accédez à votre espace. Votre rôle est déterminé par votre compte.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Identifiant / Email</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
+                  autoComplete="email"
+                  required
                   placeholder="votre@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -95,24 +72,34 @@ export default function LoginPage() {
                 <Label htmlFor="password">Mot de passe</Label>
                 <Input
                   id="password"
+                  name="password"
                   type="password"
+                  autoComplete="current-password"
+                  required
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="h-12 text-lg"
                 />
               </div>
-              <Button className="w-full h-14 text-xl font-bold rounded-xl mt-2" onClick={handleLogin}>
-                Se connecter
+
+              {error && (
+                <p role="alert" className="text-sm font-medium text-destructive">
+                  {error}
+                </p>
+              )}
+
+              <Button type="submit" className="w-full h-14 text-xl font-bold rounded-xl mt-2" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Se connecter"}
               </Button>
-              <div className="text-center">
-                <Button variant="link" className="text-sm text-muted-foreground">
-                  Difficulté de connexion ?
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+
+              <p className="text-center text-sm text-muted-foreground">
+                Vous n'avez pas encore d'accès ? Les comptes sont créés par votre administrateur ou votre matrone
+                référente.
+              </p>
+            </form>
+          </CardContent>
+        </Card>
 
         <p className="text-center text-xs text-muted-foreground max-w-xs mx-auto">
           Matronassist-ci assure la confidentialité de vos données de santé périnatale.

@@ -1,20 +1,213 @@
+// Schéma unique, PostgreSQL en développement comme en production: les fichiers
+// de migration sont ainsi réellement rejouables d'un environnement à l'autre.
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  // Connexion applicative: elle peut passer par un pool (PgBouncer chez Neon,
+  // Supabase ou Vercel Postgres).
+  url       = env("DATABASE_URL")
+  // Connexion directe, obligatoire pour les migrations: un pool en mode
+  // transaction ne supporte pas les instructions DDL de `prisma migrate`.
+  // Sans pool, y remettre simplement la meme URL que DATABASE_URL.
+  directUrl = env("DIRECT_URL")
+}
+
+/// Compte de connexion. Le rôle détermine l'espace accessible et les droits.
+/// `matrone` et `patient` portent les données métier rattachées au compte.
+model User {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String
+  name               String
+  role               String
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  matrone               Matrone?
+  patient               Patient?
+  sessions              Session[]
+  messages              Message[]
+  consultationsRecorded Consultation[]
+  callsPlaced           Call[]         @relation("CallsPlaced")
+  signalsSent           CallSignal[]
+
+  @@index([role])
+}
+
+/// Session persistée: le cookie porte un jeton aléatoire dont seule l'empreinte
+/// SHA-256 est stockée, afin qu'une fuite de la base ne permette pas d'usurper
+/// une session en cours.
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Matrone {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  region    String
+  phone     String?
+  createdAt DateTime @default(now())
+
+  patients Patient[]
+}
+
+model Patient {
+  id               String    @id @default(cuid())
+  /// Une patiente peut être suivie sans disposer d'un accès à l'application.
+  userId           String?   @unique
+  user             User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name             String
+  age              Int?
+  phone            String?
+  address          String?
+  status           String    @default("stable")
+  pregnancyStart   DateTime?
+  expectedDelivery DateTime?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  matroneId String?
+  matrone   Matrone? @relation(fields: [matroneId], references: [id], onDelete: SetNull)
+
+  consultations  Consultation[]
+  appointments   Appointment[]
+  journalEntries JournalEntry[]
+  fetalMovements FetalMovement[]
+  messages       Message[]
+  calls          Call[]
+
+  @@index([matroneId])
+  @@index([status])
+}
+
+model Consultation {
+  id            String   @id @default(cuid())
+  type          String
+  date          DateTime
+  notes         String
+  bloodPressure String?
+  weight        String?
+  temperature   String?
+  heartRate     String?
+  createdAt     DateTime @default(now())
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  /// Traçabilité: qui a saisi la consultation.
+  recordedById String?
+  recordedBy   User?   @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([patientId, date])
+}
+
+model Appointment {
+  id        String   @id @default(cuid())
+  date      DateTime
+  time      String
+  type      String
+  status    String   @default("scheduled")
+  createdAt DateTime @default(now())
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([date])
+}
+
+/// Journal de grossesse tenu par la patiente.
+model JournalEntry {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  date      DateTime @default(now())
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([patientId, date])
+}
+
+/// Comptage des mouvements fœtaux relevé par la patiente.
+model FetalMovement {
   id         String   @id @default(cuid())
-  name       String
-  region     String
-  email      String?
-  phone      String?
-  patients   Int      @default(0)
-  status     String   @default("active")
-  lastActive String
+  patientId  String
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  recordedAt DateTime @default(now())
+  count      Int
+  notes      String?
   createdAt  DateTime @default(now())
+
+  @@index([patientId, recordedAt])
+}
+
+/// Appel audio/vidéo entre une patiente et sa matrone référente.
+///
+/// Le média circule en pair-à-pair (WebRTC) et ne transite jamais par le serveur:
+/// seule la négociation (SDP et candidats ICE) passe par `CallSignal`. Aucun
+/// contenu de conversation n'est donc stocké, uniquement les métadonnées d'appel.
+model Call {
+  id        String    @id @default(cuid())
+  patientId String
+  patient   Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  callerId  String
+  caller    User      @relation("CallsPlaced", fields: [callerId], references: [id], onDelete: Cascade)
+  /// ringing | active | ended | declined | missed
+  status    String    @default("ringing")
+  withVideo Boolean   @default(false)
+  startedAt DateTime?
+  endedAt   DateTime?
+  createdAt DateTime  @default(now())
+
+  signals CallSignal[]
+
+  @@index([patientId, createdAt])
+  @@index([status])
+}
+
+/// Message de signalisation WebRTC (offre, réponse, candidat ICE).
+/// Purgé avec l'appel auquel il appartient.
+model CallSignal {
+  id        String   @id @default(cuid())
+  callId    String
+  call      Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  /// offer | answer | candidate
+  kind      String
+  payload   String
+  createdAt DateTime @default(now())
+
+  @@index([callId, createdAt])
+}
+
+/// Conversation entre une patiente et la matrone qui la suit. Le fil est rattaché
+/// à la patiente; `senderId` indique qui a écrit.
+model Message {
+  id        String    @id @default(cuid())
+  patientId String
+  patient   Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([patientId, createdAt])
 }

@@ -4,11 +4,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Heart, Shield, Users, ArrowRight } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 
 export default function LandingPage() {
-  const router = useRouter()
-
   const scrollToFeatures = () => {
     const featuresSection = document.getElementById("features")
     if (featuresSection) {
@@ -99,7 +96,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t bg-card/50 backdrop-blur-sm mt-20">
         <div className="container mx-auto px-4 py-8 text-center text-sm text-muted-foreground">
-          <p>&copy; 2025 Matronassist-ci. Tous droits réservés.</p>
+          <p>&copy; {new Date().getFullYear()} Matronassist-ci. Tous droits réservés.</p>
         </div>
       </footer>
     </div>

@@ -5,8 +5,11 @@ import * as React from 'react'
 
 import type { ToastActionElement, ToastProps } from '@/components/ui/toast'
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+/** Plusieurs actions peuvent se confirmer coup sur coup (création puis rechargement). */
+const TOAST_LIMIT = 3
+/** Durée avant disparition automatique. La valeur par défaut du gabarit (~16 min)
+ *  laissait les notifications à l'écran indéfiniment. */
+const TOAST_REMOVE_DELAY = 5000
 
 type ToasterToast = ToastProps & {
   id: string

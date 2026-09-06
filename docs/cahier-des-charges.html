@@ -1,0 +1,1601 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Cahier des charges — Matronassist-ci</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 18mm 18mm 18mm;
+  }
+
+  :root {
+    --teal: #0f6f68;
+    --teal-dark: #0a4f4a;
+    --teal-light: #e6f2f1;
+    --accent: #c9922f;
+    --accent-light: #fdf5e6;
+    --ink: #1c1c1c;
+    --muted: #5c6360;
+    --line: #d7ddda;
+    --rose: #a8455e;
+    --rose-light: #fbeef1;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    font-family: "Segoe UI", "Calibri", "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.2pt;
+    line-height: 1.55;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  /* ---------- Page de garde ---------- */
+  .cover {
+    height: 253mm;
+    display: flex;
+    flex-direction: column;
+    page-break-after: always;
+  }
+  .cover-mark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 14px;
+    border-bottom: 3px solid var(--teal);
+  }
+  .cover-mark .glyph {
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    background: var(--teal);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+  }
+  .cover-mark .wordmark {
+    font-size: 14pt; font-weight: 700; letter-spacing: -0.2px; color: var(--teal-dark);
+  }
+  .cover-mark .tag {
+    margin-left: auto; font-size: 8.5pt; color: var(--muted); text-transform: uppercase; letter-spacing: 1.4px;
+  }
+
+  .cover-body { margin-top: 62mm; }
+  .cover-kicker {
+    font-size: 9.5pt; text-transform: uppercase; letter-spacing: 3px;
+    color: var(--accent); font-weight: 700; margin-bottom: 12px;
+  }
+  .cover h1 {
+    font-size: 34pt; line-height: 1.1; margin: 0 0 10px; color: var(--teal-dark);
+    font-weight: 700; letter-spacing: -1px;
+  }
+  .cover h2 {
+    font-size: 14pt; font-weight: 500; color: var(--muted); margin: 0 0 26px;
+  }
+  .cover .lede {
+    font-size: 11pt; line-height: 1.7; max-width: 130mm; color: #333;
+    border-left: 3px solid var(--teal-light); padding-left: 16px;
+  }
+
+  .cover-meta {
+    margin-top: auto;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    border-top: 1px solid var(--line); padding-top: 14px;
+  }
+  .cover-meta div { font-size: 9pt; }
+  .cover-meta dt { color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-size: 7.6pt; margin-bottom: 3px; }
+  .cover-meta dd { margin: 0; font-weight: 600; }
+
+  /* ---------- Titres ---------- */
+  h2.chapter {
+    font-size: 17pt;
+    color: var(--teal-dark);
+    margin: 0 0 4px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--teal);
+    letter-spacing: -0.3px;
+  }
+  h2.chapter .num {
+    display: inline-block; min-width: 30px;
+    color: var(--accent);
+  }
+  h3 {
+    font-size: 11.6pt; color: var(--teal-dark); margin: 20px 0 6px;
+    page-break-after: avoid;
+  }
+  h4 {
+    font-size: 10.3pt; margin: 14px 0 4px; color: #2c3330;
+    page-break-after: avoid;
+  }
+  section.chapter { page-break-before: always; }
+  section.chapter:first-of-type { page-break-before: avoid; }
+
+  p { margin: 0 0 9px; text-align: justify; }
+  ul, ol { margin: 0 0 10px; padding-left: 20px; }
+  li { margin-bottom: 3px; }
+  strong { font-weight: 650; }
+  code {
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 8.8pt; background: #f1f4f3; padding: 1px 4px; border-radius: 3px;
+    color: var(--teal-dark);
+  }
+
+  /* ---------- Tableaux ---------- */
+  table {
+    width: 100%; border-collapse: collapse; margin: 10px 0 16px;
+    font-size: 9.1pt; page-break-inside: auto;
+  }
+  thead { display: table-header-group; }
+  tr { page-break-inside: avoid; }
+  th {
+    background: var(--teal); color: #fff; text-align: left;
+    padding: 6px 8px; font-weight: 600; font-size: 8.6pt;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  td { padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:nth-child(even) td { background: #f7faf9; }
+  td.id, th.id { white-space: nowrap; font-weight: 600; color: var(--teal-dark); width: 62px; }
+  td.pri, th.pri { white-space: nowrap; width: 74px; text-align: center; }
+
+  .pill {
+    display: inline-block; padding: 1px 7px; border-radius: 20px;
+    font-size: 7.8pt; font-weight: 700; letter-spacing: 0.3px;
+  }
+  .pill.must { background: var(--rose-light); color: var(--rose); }
+  .pill.should { background: var(--accent-light); color: #8a6216; }
+  .pill.could { background: #eef1f0; color: var(--muted); }
+  .pill.done { background: var(--teal-light); color: var(--teal-dark); }
+
+  /* ---------- Encadrés ---------- */
+  .callout {
+    border-left: 3px solid var(--teal);
+    background: var(--teal-light);
+    padding: 10px 14px; margin: 12px 0 16px;
+    page-break-inside: avoid;
+    font-size: 9.4pt;
+  }
+  .callout.warn { border-left-color: var(--accent); background: var(--accent-light); }
+  .callout.risk { border-left-color: var(--rose); background: var(--rose-light); }
+  .callout .t {
+    display: block; font-weight: 700; margin-bottom: 3px; color: var(--teal-dark);
+    text-transform: uppercase; font-size: 8.2pt; letter-spacing: 1px;
+  }
+  .callout.warn .t { color: #8a6216; }
+  .callout.risk .t { color: var(--rose); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---------- Sommaire ---------- */
+  .toc { column-count: 1; }
+  .toc ol { list-style: none; padding: 0; margin: 0; }
+  .toc > ol > li {
+    padding: 2.5px 0; border-bottom: 1px dotted var(--line);
+    font-weight: 600; font-size: 10pt; line-height: 1.35;
+    page-break-inside: avoid;
+  }
+  .toc > ol > li > span.n { color: var(--accent); display: inline-block; width: 26px; }
+  .toc ul { list-style: none; padding: 0 0 0 26px; margin: 1px 0 0; font-weight: 400; font-size: 8.6pt; line-height: 1.4; color: var(--muted); }
+  .toc ul li { margin: 0; }
+
+  /* ---------- Schémas ---------- */
+  figure { margin: 12px 0 18px; page-break-inside: avoid; }
+  figcaption {
+    font-size: 8.4pt; color: var(--muted); margin-top: 6px;
+    text-align: center; font-style: italic;
+  }
+  svg { display: block; margin: 0 auto; max-width: 100%; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .box {
+    border: 1px solid var(--line); border-top: 3px solid var(--teal);
+    padding: 10px 12px; page-break-inside: avoid;
+  }
+  .box h4 { margin-top: 0; color: var(--teal-dark); }
+  .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+  .box ul { padding-left: 16px; font-size: 9.2pt; }
+
+  .kpi { text-align: center; border: 1px solid var(--line); padding: 10px 6px; }
+  .kpi .v { font-size: 18pt; font-weight: 700; color: var(--teal); line-height: 1.1; }
+  .kpi .l { font-size: 8.2pt; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+
+  .sig { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 26px; }
+  .sig div { border-top: 1px solid var(--ink); padding-top: 6px; font-size: 9pt; }
+  .sig .role { font-weight: 700; }
+  .sig .space { height: 24mm; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ PAGE DE GARDE ══════════════════ -->
+<div class="cover">
+  <div class="cover-mark">
+    <div class="glyph">&#9829;</div>
+    <div class="wordmark">Matronassist-ci</div>
+    <div class="tag">Document contractuel</div>
+  </div>
+
+  <div class="cover-body">
+    <div class="cover-kicker">Cahier des charges</div>
+    <h1>Plateforme numérique<br>de suivi maternel</h1>
+    <h2>Coordination des matrones, des patientes et de l'administration du réseau</h2>
+    <p class="lede">
+      Ce document définit le contexte, le périmètre, les exigences fonctionnelles et
+      non fonctionnelles, l'architecture et les critères de recette de la plateforme
+      Matronassist-ci : une application web progressive permettant aux matrones de
+      tenir les dossiers de grossesse de leurs patientes, aux patientes de suivre
+      leur grossesse et d'échanger avec leur matrone référente, et à l'administration
+      de piloter le réseau.
+    </p>
+  </div>
+
+  <dl class="cover-meta">
+    <div><dt>Projet</dt><dd>Matronassist-ci</dd></div>
+    <div><dt>Version</dt><dd>1.0</dd></div>
+    <div><dt>Date</dt><dd>10 août 2026</dd></div>
+    <div><dt>Statut</dt><dd>Pour validation</dd></div>
+  </dl>
+</div>
+
+<!-- ══════════════════ SOMMAIRE ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter">Sommaire</h2>
+  <div class="toc">
+    <ol>
+      <li><span class="n">1.</span> Objet et gestion du document
+        <ul><li>Objet · Destinataires · Historique des versions · Documents de référence</li></ul>
+      </li>
+      <li><span class="n">2.</span> Contexte et enjeux
+        <ul><li>Situation actuelle · Problèmes constatés · Opportunité</li></ul>
+      </li>
+      <li><span class="n">3.</span> Objectifs et indicateurs de succès
+        <ul><li>Objectifs généraux · Objectifs opérationnels · Indicateurs</li></ul>
+      </li>
+      <li><span class="n">4.</span> Périmètre du projet
+        <ul><li>Compris dans le périmètre · Explicitement exclu · Hypothèses et contraintes</li></ul>
+      </li>
+      <li><span class="n">5.</span> Acteurs, rôles et parcours
+        <ul><li>Parties prenantes · Matrice des droits · Parcours utilisateurs</li></ul>
+      </li>
+      <li><span class="n">6.</span> Exigences fonctionnelles
+        <ul><li>Comptes et authentification · Administration du réseau · Dossiers de grossesse ·
+        Consultations · Agenda · Espace patiente · Messagerie · Appels audio/vidéo ·
+        Alertes et tableaux de bord · Mode hors-ligne</li></ul>
+      </li>
+      <li><span class="n">7.</span> Règles de gestion
+        <ul><li>Calculs de grossesse · Seuils de vigilance · Cycle de vie des données</li></ul>
+      </li>
+      <li><span class="n">8.</span> Modèle de données
+        <ul><li>Entités · Relations · Dictionnaire des principaux attributs</li></ul>
+      </li>
+      <li><span class="n">9.</span> Exigences non fonctionnelles
+        <ul><li>Sécurité · Performance · Disponibilité · Ergonomie · Accessibilité · Compatibilité</li></ul>
+      </li>
+      <li><span class="n">10.</span> Architecture technique
+        <ul><li>Vue d'ensemble · Pile technologique · Arbitrages structurants</li></ul>
+      </li>
+      <li><span class="n">11.</span> Interfaces applicatives (API)
+        <ul><li>Conventions · Inventaire des routes · Codes de retour</li></ul>
+      </li>
+      <li><span class="n">12.</span> Sécurité, confidentialité et conformité
+        <ul><li>Mesures en place · Écarts identifiés · Obligations réglementaires</li></ul>
+      </li>
+      <li><span class="n">13.</span> Environnements, déploiement et exploitation
+        <ul><li>Environnements · Chaîne d'intégration · Sauvegarde et supervision</li></ul>
+      </li>
+      <li><span class="n">14.</span> Livrables attendus</li>
+      <li><span class="n">15.</span> Recette et critères d'acceptation
+        <ul><li>Stratégie de test · Scénarios de recette · Conditions de réception</li></ul>
+      </li>
+      <li><span class="n">16.</span> Lotissement et planning</li>
+      <li><span class="n">17.</span> Risques et mesures de maîtrise</li>
+      <li><span class="n">18.</span> Évolutions envisagées</li>
+      <li><span class="n">19.</span> Annexes
+        <ul><li>Glossaire · Arborescence du projet · Validation</li></ul>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ══════════════════ 1 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">1.</span> Objet et gestion du document</h2>
+
+  <h3>1.1 Objet</h3>
+  <p>
+    Le présent cahier des charges décrit l'ensemble des besoins auxquels doit répondre la
+    plateforme <strong>Matronassist-ci</strong>. Il sert de référence commune entre la
+    maîtrise d'ouvrage (la structure de santé porteuse du réseau de matrones) et la
+    maîtrise d'œuvre (l'équipe de développement) pour la conception, la réalisation, la
+    recette et la mise en production de la solution.
+  </p>
+  <p>
+    Il décrit <em>ce que</em> le système doit faire et les contraintes qui s'imposent à lui,
+    ainsi que les choix techniques déjà arrêtés et justifiés. Toute évolution du périmètre
+    décrit ici fait l'objet d'un avenant validé par les deux parties.
+  </p>
+
+  <h3>1.2 Destinataires</h3>
+  <table>
+    <thead><tr><th style="width:34%">Destinataire</th><th>Usage attendu du document</th></tr></thead>
+    <tbody>
+      <tr><td>Direction de la structure de santé</td><td>Validation du périmètre, des objectifs et du budget associé</td></tr>
+      <tr><td>Responsable du réseau de matrones</td><td>Vérification de l'adéquation métier des exigences fonctionnelles</td></tr>
+      <tr><td>Équipe de développement</td><td>Référence de conception et de réalisation</td></tr>
+      <tr><td>Responsable sécurité / conformité</td><td>Analyse des chapitres 9 et 12 (données de santé)</td></tr>
+      <tr><td>Équipe de recette</td><td>Construction du plan de tests à partir des chapitres 6, 7 et 15</td></tr>
+    </tbody>
+  </table>
+
+  <h3>1.3 Historique des versions</h3>
+  <table>
+    <thead><tr><th style="width:12%">Version</th><th style="width:18%">Date</th><th style="width:24%">Auteur</th><th>Nature de la modification</th></tr></thead>
+    <tbody>
+      <tr><td>0.1</td><td>—</td><td>Équipe projet</td><td>Recueil initial des besoins auprès des matrones</td></tr>
+      <tr><td>1.0</td><td>10/08/2026</td><td>Équipe projet</td><td>Version consolidée soumise à validation, alignée sur la solution réalisée</td></tr>
+    </tbody>
+  </table>
+
+  <h3>1.4 Documents de référence</h3>
+  <ul>
+    <li><code>README.md</code> — documentation technique d'installation et d'exploitation ;</li>
+    <li><code>prisma/schema.prisma</code> — modèle de données faisant foi ;</li>
+    <li><code>.env.example</code> — inventaire des variables d'environnement requises ;</li>
+    <li><code>.github/workflows/deploy.yml</code> — chaîne d'intégration et de déploiement continus.</li>
+  </ul>
+
+  <h3>1.5 Conventions de lecture</h3>
+  <p>
+    Chaque exigence porte un identifiant unique et une priorité selon la méthode MoSCoW :
+  </p>
+  <p>
+    <span class="pill must">ESSENTIEL</span> l'exigence conditionne la mise en service &nbsp;·&nbsp;
+    <span class="pill should">IMPORTANT</span> forte valeur, contournement possible &nbsp;·&nbsp;
+    <span class="pill could">SOUHAITÉ</span> retenu si le budget le permet
+  </p>
+  <p>
+    Les préfixes utilisés sont : <code>EF</code> exigence fonctionnelle, <code>ENF</code> exigence
+    non fonctionnelle, <code>RG</code> règle de gestion, <code>RQ</code> risque.
+  </p>
+</section>
+
+<!-- ══════════════════ 2 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">2.</span> Contexte et enjeux</h2>
+
+  <h3>2.1 Situation actuelle</h3>
+  <p>
+    Les matrones assurent le suivi prénatal de proximité auprès de femmes enceintes, souvent
+    dans des zones où l'accès à une structure hospitalière est long ou coûteux. Ce suivi
+    repose aujourd'hui sur des supports papier : carnet de grossesse détenu par la patiente,
+    cahier de consultation tenu par la matrone, agenda personnel pour les rendez-vous.
+  </p>
+  <p>
+    L'administration du réseau ne dispose d'aucune vision consolidée : le nombre de patientes
+    suivies, la répartition géographique des matrones et l'existence de situations à risque
+    ne sont connus qu'au travers de remontées déclaratives, ponctuelles et tardives.
+  </p>
+
+  <h3>2.2 Problèmes constatés</h3>
+  <table>
+    <thead><tr><th style="width:30%">Constat</th><th>Conséquence</th></tr></thead>
+    <tbody>
+      <tr><td>Dossier papier unique et non dupliqué</td><td>Perte de l'historique en cas d'égarement du carnet ; impossibilité de reprendre un suivi si la matrone change</td></tr>
+      <tr><td>Constantes vitales non recoupées</td><td>Une tension anormale relevée lors d'une visite peut ne pas être rapprochée des relevés précédents</td></tr>
+      <tr><td>Absence de canal d'échange entre deux visites</td><td>La patiente attend le rendez-vous suivant pour signaler un symptôme, ou se déplace inutilement</td></tr>
+      <tr><td>Rendez-vous non suivis</td><td>Aucune détection systématique des consultations manquées ou des suivis interrompus</td></tr>
+      <tr><td>Pilotage du réseau à l'aveugle</td><td>Impossibilité d'affecter les moyens là où le besoin est le plus fort</td></tr>
+      <tr><td>Connectivité intermittente sur le terrain</td><td>Toute solution exigeant une connexion permanente serait inutilisable en zone mal couverte</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.3 Opportunité</h3>
+  <p>
+    Le taux d'équipement en téléphones mobiles chez les matrones et une part croissante des
+    patientes rendent réaliste une application web accessible depuis un navigateur, sans
+    installation depuis un magasin d'applications, fonctionnant sur des terminaux modestes et
+    tolérante aux coupures de réseau. La plateforme vise à numériser le suivi <em>sans</em>
+    modifier la pratique de terrain : la matrone reste l'unique interlocutrice de sa patiente,
+    l'outil se contente de conserver, calculer et relier.
+  </p>
+
+  <div class="callout">
+    <span class="t">Principe directeur</span>
+    <p>
+      L'application ne pose aucun diagnostic et ne remplace aucun avis médical. Les seuils de
+      vigilance qu'elle applique servent uniquement à faire remonter visuellement une fiche
+      dans la liste de travail de la matrone.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════ 3 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">3.</span> Objectifs et indicateurs de succès</h2>
+
+  <h3>3.1 Objectifs généraux</h3>
+  <ol>
+    <li><strong>Fiabiliser le dossier de suivi</strong> — disposer d'un dossier de grossesse numérique unique, durable et consultable par la matrone référente comme par la patiente.</li>
+    <li><strong>Réduire le délai de détection des situations à risque</strong> — faire remonter automatiquement les constantes hors seuils, les rendez-vous non honorés et les suivis interrompus.</li>
+    <li><strong>Maintenir le lien entre deux consultations</strong> — offrir un canal d'échange écrit et un canal d'appel audio/vidéo directement entre la patiente et sa matrone.</li>
+    <li><strong>Donner à l'administration une vision consolidée</strong> — mesurer l'activité du réseau et la répartition des suivis en temps réel.</li>
+    <li><strong>Fonctionner en conditions réelles</strong> — rester utilisable sur téléphone d'entrée de gamme et en connectivité dégradée.</li>
+  </ol>
+
+  <h3>3.2 Objectifs opérationnels</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:42%">Objectif opérationnel</th><th>Traduction dans la solution</th></tr></thead>
+    <tbody>
+      <tr><td class="id">OB-01</td><td>Aucune donnée fictive en production</td><td>La base démarre vide ; elle se remplit exclusivement par l'usage réel</td></tr>
+      <tr><td class="id">OB-02</td><td>Aucune inscription publique</td><td>Les comptes sont provisionnés par l'administration puis par les matrones</td></tr>
+      <tr><td class="id">OB-03</td><td>Saisie d'une consultation en moins de deux minutes</td><td>Formulaire unique, champs de constantes en saisie libre tolérante</td></tr>
+      <tr><td class="id">OB-04</td><td>Saisie possible sans réseau</td><td>File d'attente locale rejouée automatiquement au retour de la connexion</td></tr>
+      <tr><td class="id">OB-05</td><td>Confidentialité des échanges médicaux</td><td>Média d'appel en pair-à-pair, jamais transmis au serveur ni enregistré</td></tr>
+      <tr><td class="id">OB-06</td><td>Cloisonnement strict des dossiers</td><td>Une matrone ne voit que ses patientes ; une patiente ne voit que son dossier</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.3 Indicateurs de succès</h3>
+  <div class="grid3">
+    <div class="kpi"><div class="v">100 %</div><div class="l">Dossiers avec date de début de grossesse renseignée</div></div>
+    <div class="kpi"><div class="v">&lt; 3 s</div><div class="l">Latence perçue d'un message envoyé</div></div>
+    <div class="kpi"><div class="v">0</div><div class="l">Perte de saisie constatée lors d'une coupure réseau</div></div>
+  </div>
+  <table>
+    <thead><tr><th style="width:50%">Indicateur</th><th style="width:25%">Cible à 6 mois</th><th>Mode de mesure</th></tr></thead>
+    <tbody>
+      <tr><td>Part des matrones du réseau ayant un compte actif</td><td>&ge; 90 %</td><td>Tableau de bord d'administration</td></tr>
+      <tr><td>Part des patientes suivies enregistrées dans l'outil</td><td>&ge; 80 %</td><td>Compteur de dossiers rapporté aux effectifs déclarés</td></tr>
+      <tr><td>Délai moyen entre une consultation et sa saisie</td><td>&le; 24 h</td><td>Écart entre <code>date</code> et <code>createdAt</code> de la consultation</td></tr>
+      <tr><td>Alertes « suivi en retard » traitées sous 15 jours</td><td>&ge; 75 %</td><td>Suivi de la file d'alertes recalculée</td></tr>
+      <tr><td>Appels aboutis parmi les appels lancés</td><td>&ge; 85 %</td><td>Statuts des appels enregistrés</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════ 4 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">4.</span> Périmètre du projet</h2>
+
+  <h3>4.1 Compris dans le périmètre</h3>
+  <div class="grid2">
+    <div class="box">
+      <h4>Fonctionnel</h4>
+      <ul>
+        <li>Gestion des comptes et des rôles (3 profils)</li>
+        <li>Dossiers de grossesse et consultations</li>
+        <li>Constantes vitales et statut de surveillance</li>
+        <li>Agenda des rendez-vous</li>
+        <li>Journal de grossesse tenu par la patiente</li>
+        <li>Comptage des mouvements fœtaux</li>
+        <li>Messagerie patiente &#8596; matrone</li>
+        <li>Appels audio et vidéo pair-à-pair</li>
+        <li>Alertes calculées et tableaux de bord</li>
+        <li>Fonctionnement hors-ligne des saisies</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h4>Technique</h4>
+      <ul>
+        <li>Application web progressive installable</li>
+        <li>Interface responsive, conçue pour le téléphone</li>
+        <li>API interne documentée et validée</li>
+        <li>Base de données relationnelle et migrations</li>
+        <li>Chaîne d'intégration et de déploiement continus</li>
+        <li>Script de création du premier administrateur</li>
+        <li>Documentation d'installation et d'exploitation</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>4.2 Explicitement exclu du périmètre</h3>
+  <p>
+    Les éléments suivants ne font pas partie de la présente version. Leur absence est un choix
+    assumé, non un oubli ; le chapitre 18 précise ceux qui pourraient être repris ultérieurement.
+  </p>
+  <table>
+    <thead><tr><th style="width:38%">Hors périmètre</th><th>Justification</th></tr></thead>
+    <tbody>
+      <tr><td>Inscription publique des patientes</td><td>Un dossier médical ne peut être ouvert que par un professionnel identifié</td></tr>
+      <tr><td>Facturation, paiement, tiers payant</td><td>Le suivi assuré par le réseau n'est pas facturé via la plateforme</td></tr>
+      <tr><td>Ordonnances et prescription médicamenteuse</td><td>Hors du champ de compétence des matrones</td></tr>
+      <tr><td>Interconnexion avec un dossier hospitalier national</td><td>Aucun référentiel d'échange disponible à ce stade</td></tr>
+      <tr><td>Application mobile native (magasins d'applications)</td><td>L'application web progressive couvre le besoin sans coût de publication</td></tr>
+      <tr><td>Enregistrement des appels</td><td>Contraire au principe de confidentialité retenu (OB-05)</td></tr>
+      <tr><td>Notifications push hors application</td><td>Nécessite une infrastructure de notification non retenue en version 1</td></tr>
+      <tr><td>Traduction en langues locales</td><td>Interface en français uniquement pour cette version</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4.3 Hypothèses et contraintes</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:26%">Nature</th><th>Énoncé</th></tr></thead>
+    <tbody>
+      <tr><td class="id">HY-01</td><td>Hypothèse</td><td>Chaque matrone dispose d'un téléphone équipé d'un navigateur récent et d'un accès Internet au moins intermittent</td></tr>
+      <tr><td class="id">HY-02</td><td>Hypothèse</td><td>L'administration désigne un référent chargé de créer et de désactiver les comptes matrones</td></tr>
+      <tr><td class="id">HY-03</td><td>Hypothèse</td><td>Une patiente peut être suivie sans disposer elle-même d'un accès à l'application</td></tr>
+      <tr><td class="id">CT-01</td><td>Contrainte</td><td>L'application doit être servie en HTTPS : les appels audio/vidéo requièrent une origine sécurisée</td></tr>
+      <tr><td class="id">CT-02</td><td>Contrainte</td><td>L'hébergement retenu est de type <em>serverless</em> : aucune connexion persistante ne peut être maintenue</td></tr>
+      <tr><td class="id">CT-03</td><td>Contrainte</td><td>Interface, messages d'erreur et documentation intégralement en français</td></tr>
+      <tr><td class="id">CT-04</td><td>Contrainte</td><td>Les données manipulées sont des données de santé : elles imposent les mesures du chapitre 12</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════ 5 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">5.</span> Acteurs, rôles et parcours</h2>
+
+  <h3>5.1 Parties prenantes</h3>
+  <table>
+    <thead><tr><th style="width:24%">Acteur</th><th style="width:20%">Type</th><th>Attentes principales</th></tr></thead>
+    <tbody>
+      <tr><td>Administrateur</td><td>Utilisateur — rôle <code>admin</code></td><td>Piloter le réseau, gérer les comptes matrones, disposer d'une vue consolidée</td></tr>
+      <tr><td>Matrone</td><td>Utilisateur — rôle <code>matrone</code></td><td>Tenir les dossiers de ses patientes, planifier, échanger, être alertée</td></tr>
+      <tr><td>Patiente</td><td>Utilisateur — rôle <code>patiente</code></td><td>Suivre sa grossesse, tenir son journal, joindre sa matrone</td></tr>
+      <tr><td>Structure porteuse</td><td>Maîtrise d'ouvrage</td><td>Conformité, maîtrise du budget, adoption par le terrain</td></tr>
+      <tr><td>Équipe de développement</td><td>Maîtrise d'œuvre</td><td>Exigences stabilisées et vérifiables</td></tr>
+      <tr><td>Hébergeur</td><td>Prestataire</td><td>Disponibilité, sauvegardes, conformité de l'hébergement</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5.2 Matrice des droits</h3>
+  <p>
+    Le cloisonnement est la règle structurante de la plateforme. Il s'applique à toutes les
+    lectures comme à toutes les écritures.
+  </p>
+  <table>
+    <thead>
+      <tr><th style="width:40%">Périmètre / opération</th><th style="width:20%">Administrateur</th><th style="width:20%">Matrone</th><th style="width:20%">Patiente</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Comptes matrones (création, modification, suppression)</td><td>Oui</td><td>Non</td><td>Non</td></tr>
+      <tr><td>Consultation des dossiers</td><td>Tout le réseau</td><td>Ses patientes</td><td>Son dossier</td></tr>
+      <tr><td>Création d'un dossier patiente</td><td>Oui</td><td>Oui</td><td>Non</td></tr>
+      <tr><td>Modification d'un dossier</td><td>Oui</td><td>Ses patientes</td><td>Non</td></tr>
+      <tr><td>Suppression d'un dossier</td><td>Oui</td><td>Non</td><td>Non</td></tr>
+      <tr><td>Saisie d'une consultation</td><td>Oui</td><td>Ses patientes</td><td>Non</td></tr>
+      <tr><td>Planification d'un rendez-vous</td><td>Oui</td><td>Ses patientes</td><td>Non</td></tr>
+      <tr><td>Journal de grossesse et mouvements fœtaux</td><td>Lecture</td><td>Lecture</td><td>Écriture (son dossier)</td></tr>
+      <tr><td>Messagerie</td><td>Lecture</td><td>Avec ses patientes</td><td>Avec sa matrone</td></tr>
+      <tr><td>Appel audio/vidéo</td><td><strong>Non</strong></td><td>Avec ses patientes</td><td>Avec sa matrone</td></tr>
+      <tr><td>Statistiques et alertes</td><td>Réseau entier</td><td>Son portefeuille</td><td>Son dossier</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <span class="t">Règle de discrétion</span>
+    <p>
+      Une demande portant sur un dossier existant mais hors périmètre renvoie <strong>404
+      « introuvable »</strong> et non 403 « accès refusé » : répondre 403 révélerait
+      l'existence du dossier d'une patiente suivie par une autre matrone.
+    </p>
+  </div>
+
+  <h3>5.3 Parcours utilisateurs de référence</h3>
+
+  <h4>Parcours A — Mise en service du réseau</h4>
+  <p>
+    Le premier administrateur est créé en ligne de commande sur le serveur ; son mot de passe
+    provisoire est affiché une seule fois. Il se connecte, choisit un nouveau mot de passe
+    (imposé avant tout accès aux données), puis crée les comptes des matrones. Chaque compte
+    matrone reçoit à son tour un mot de passe provisoire à changer à la première connexion.
+  </p>
+
+  <h4>Parcours B — Ouverture d'un dossier de grossesse</h4>
+  <p>
+    La matrone crée le dossier de sa patiente : identité, âge, téléphone, localisation, date de
+    début de grossesse, terme prévu et notes médicales. Elle peut, si la patiente est équipée,
+    lui ouvrir un accès à l'application en renseignant une adresse électronique ; un mot de
+    passe provisoire est alors généré et transmis de la main à la main.
+  </p>
+
+  <h4>Parcours C — Consultation prénatale</h4>
+  <p>
+    Lors de la visite, la matrone enregistre le type de consultation, sa date, les constantes
+    relevées (tension, poids, température, pouls) et ses observations. Si une constante dépasse
+    un seuil de vigilance, le dossier bascule immédiatement en « surveillance » et une alerte
+    apparaît dans son tableau de bord. En l'absence de réseau, la saisie est mise en file et
+    envoyée automatiquement au retour de la connexion.
+  </p>
+
+  <h4>Parcours D — Suivi par la patiente</h4>
+  <p>
+    La patiente consulte sa semaine de grossesse, son terme estimé, son prochain rendez-vous et
+    ses dernières constantes. Elle alimente son journal, relève ses comptages de mouvements
+    fœtaux et écrit à sa matrone. En cas de besoin, elle lance un appel audio ou vidéo.
+  </p>
+
+  <h4>Parcours E — Pilotage du réseau</h4>
+  <p>
+    L'administrateur consulte le nombre de matrones actives, le nombre de dossiers suivis, les
+    dossiers sous surveillance, les rendez-vous à venir, les consultations du mois et la
+    distribution régionale. Il traite la file d'alertes du réseau et intervient sur les comptes
+    (réinitialisation, désactivation).
+  </p>
+</section>
+
+<!-- ══════════════════ 6 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">6.</span> Exigences fonctionnelles</h2>
+
+  <h3>6.1 Module « Comptes et authentification »</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:34%">Exigence</th><th>Détail attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">EF-101</td><td>Connexion par identifiant et mot de passe</td><td>Formulaire unique pour les trois rôles ; redirection vers l'espace correspondant au rôle</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-102</td><td>Absence d'inscription publique</td><td>Aucun formulaire de création de compte accessible sans être connecté</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-103</td><td>Mot de passe provisoire à la création</td><td>Généré par le système, affiché une seule fois, copiable dans le presse-papiers</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-104</td><td>Changement imposé à la première connexion</td><td>Tant que le mot de passe provisoire n'est pas remplacé, aucun accès aux données n'est possible</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-105</td><td>Politique de mot de passe</td><td>10 caractères minimum, au moins une lettre et un chiffre ; message d'échec explicite</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-106</td><td>Changement de mot de passe volontaire</td><td>Accessible à tout moment, exige le mot de passe courant</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-107</td><td>Déconnexion</td><td>Ferme la session côté serveur et supprime le cookie</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-108</td><td>Révocation immédiate</td><td>Désactiver un compte ou changer son mot de passe invalide toutes ses sessions ouvertes</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-109</td><td>Message d'échec non discriminant</td><td>Identifiant inconnu, mot de passe erroné et compte désactivé produisent le même message</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-110</td><td>Consultation de l'identité courante</td><td>L'interface affiche en permanence le nom et le rôle de l'utilisateur connecté</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.2 Module « Administration du réseau »</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:34%">Exigence</th><th>Détail attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">EF-201</td><td>Création d'un compte matrone</td><td>Nom, adresse électronique professionnelle, région ou district, téléphone facultatif</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-202</td><td>Liste des comptes matrones</td><td>Nom, courriel, région, état d'activité, dernière connexion, nombre de patientes suivies</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-203</td><td>Activation / désactivation d'un compte</td><td>Un compte désactivé ne peut plus se connecter ; ses données restent intactes</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-204</td><td>Réinitialisation de mot de passe</td><td>Génère un nouveau mot de passe provisoire affiché une seule fois et révoque les sessions</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-205</td><td>Suppression d'un compte matrone</td><td>Refusée tant que des patientes lui sont rattachées ; message indiquant la marche à suivre</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-206</td><td>Modification d'une fiche matrone</td><td>Nom, région et téléphone modifiables</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">EF-207</td><td>Vue consolidée du réseau</td><td>Compteurs d'activité et distribution régionale des matrones</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">EF-208</td><td>Accès en lecture à tous les dossiers</td><td>L'administrateur consulte l'ensemble des dossiers sans pouvoir rejoindre les appels</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.3 Module « Dossiers de grossesse »</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:34%">Exigence</th><th>Détail attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">EF-301</td><td>Création d'un dossier</td><td>Nom (obligatoire), âge, téléphone, localisation, début de grossesse, terme prévu, notes médicales</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-302</td><td>Ouverture facultative d'un accès patiente</td><td>Si une adresse électronique est fournie, un compte est créé avec mot de passe provisoire</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-303</td><td>Suivi sans compte</td><td>Un dossier reste pleinement exploitable pour une patiente non équipée</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-304</td><td>Liste des patientes suivies</td><td>Recherche, statut, semaine de grossesse, dernière visite, prochain rendez-vous</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-305</td><td>Fiche détaillée</td><td>Identité, suivi de grossesse, dernières constantes, historique des consultations et rendez-vous</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-306</td><td>Modification d'un dossier</td><td>Tous les champs administratifs et médicaux, dans la limite du périmètre de l'utilisateur</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-307</td><td>Statut de surveillance visible</td><td>Distinction visuelle « stable » / « surveillance » dans les listes et sur la fiche</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-308</td><td>Suppression d'un dossier</td><td>Réservée à l'administrateur ; supprime en cascade consultations, rendez-vous, journal, messages et appels</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.4 Module « Consultations et constantes »</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:34%">Exigence</th><th>Détail attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">EF-401</td><td>Enregistrement d'une consultation</td><td>Type, date et observations obligatoires ; constantes facultatives</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-402</td><td>Types de consultation normalisés</td><td>Prénatale, de routine, d'urgence, échographie, première visite</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">EF-403</td><td>Saisie tolérante des constantes</td><td>Tension « 120/80 », température « 36,8 °C » : la valeur numérique est extraite d'une saisie libre</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">EF-404</td><td>Traçabilité de la saisie</td><td>Chaque consultation conserve l'auteur de la saisie</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-405</td><td>Historique chronologique</td><td>Consultations classées de la plus récente à la plus ancienne</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-406</td><td>Bascule automatique du statut</td><td>Application des seuils de vigilance décrits en RG-03</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.5 Module « Agenda »</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:34%">Exigence</th><th>Détail attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">EF-501</td><td>Planification d'un rendez-vous</td><td>Patiente, date, heure et type obligatoires</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-502</td><td>Types de rendez-vous normalisés</td><td>Prénatal, de routine, suivi tension, échographie</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">EF-503</td><td>Cycle de vie du rendez-vous</td><td>Prévu &#8594; réalisé ou annulé</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-504</td><td>Vue calendrier de la matrone</td><td>Rendez-vous à venir, triés par date</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-505</td><td>Prochain rendez-vous côté patiente</td><td>Affiché en évidence sur l'écran de suivi</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-506</td><td>Détection des rendez-vous non clôturés</td><td>Un rendez-vous passé encore « prévu » génère une alerte</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.6 Module « Espace patiente »</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:34%">Exigence</th><th>Détail attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">EF-601</td><td>Écran de suivi de grossesse</td><td>Semaine en cours, terme estimé, matrone référente, dernières constantes</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-602</td><td>Journal de grossesse</td><td>Saisie libre datée ; la semaine de grossesse est associée à chaque entrée</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-603</td><td>Comptage des mouvements fœtaux</td><td>Nombre (0 à 200) et remarque facultative, horodatés</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-604</td><td>Historique des relevés</td><td>Liste chronologique des comptages et des entrées de journal</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-605</td><td>Consultation de son historique médical</td><td>Consultations enregistrées par la matrone, en lecture seule</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-606</td><td>Écriture réservée à la patiente</td><td>Journal et mouvements ne peuvent être saisis que par la patiente concernée</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.7 Module « Messagerie »</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:34%">Exigence</th><th>Détail attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">EF-701</td><td>Fil de discussion par patiente</td><td>Un fil unique entre la patiente et sa matrone référente</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-702</td><td>Mise à jour automatique</td><td>Rafraîchissement toutes les 3 secondes, limité aux messages postérieurs au dernier reçu</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-703</td><td>Économie de ressources</td><td>Le rafraîchissement s'interrompt lorsque l'onglet passe en arrière-plan</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">EF-704</td><td>Liste des conversations</td><td>Côté matrone : une ligne par patiente, dernier message et nombre de non-lus</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-705</td><td>Compteur de messages non lus</td><td>Pastille sur l'onglet « Messages »</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">EF-706</td><td>Marquage comme lu</td><td>À l'ouverture du fil par le destinataire</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">EF-707</td><td>Envoi différé hors-ligne</td><td>Un message écrit sans réseau est mis en file et envoyé à la reconnexion</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.8 Module « Appels audio et vidéo »</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:34%">Exigence</th><th>Détail attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">EF-801</td><td>Appel entre la patiente et sa matrone</td><td>Lancement par l'une ou l'autre des parties, en audio seul ou avec vidéo</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-802</td><td>Exclusion de l'administration</td><td>Un administrateur ne peut ni lancer ni rejoindre un appel</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-803</td><td>Média en pair-à-pair</td><td>Voix et image circulent directement entre les appareils, sans transiter par le serveur</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-804</td><td>Notification d'appel entrant</td><td>Le correspondant voit l'appel « sonner » et peut décrocher ou refuser</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-805</td><td>Expiration d'un appel non décroché</td><td>Bascule automatique en « manqué » au bout de 45 secondes</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-806</td><td>Journal des appels</td><td>Conservation des métadonnées : parties, date, durée, issue ; aucun contenu enregistré</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-807</td><td>Commandes en cours d'appel</td><td>Couper le micro, couper la caméra, raccrocher</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">EF-808</td><td>Message explicite en cas d'échec</td><td>Si la connexion directe n'aboutit pas, l'interface l'indique et invite à replier sur la messagerie</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.9 Module « Alertes et tableaux de bord »</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:34%">Exigence</th><th>Détail attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">EF-901</td><td>Alerte « constantes hors seuils »</td><td>Sévérité haute ; rappelle la dernière tension relevée et sa date</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-902</td><td>Alerte « rendez-vous non clôturé »</td><td>Sévérité moyenne ; rendez-vous passé toujours marqué comme à venir</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-903</td><td>Alerte « suivi en retard »</td><td>Sévérité moyenne ; aucune consultation depuis plus de 60 jours</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-904</td><td>Alertes toujours à jour</td><td>Recalculées à chaque consultation de l'écran, jamais stockées</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-905</td><td>Alertes limitées au périmètre</td><td>Chaque utilisateur ne voit que les alertes des dossiers qui le concernent</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-906</td><td>Compteurs d'activité</td><td>Matrones, matrones actives, patientes, patientes sous surveillance, rendez-vous à venir, consultations du mois</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-907</td><td>Tri par gravité</td><td>Les alertes critiques apparaissent en tête de liste</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.10 Module « Fonctionnement hors-ligne »</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:34%">Exigence</th><th>Détail attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">EF-1001</td><td>Application installable</td><td>Manifeste d'application web progressive, icône et écran de démarrage</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">EF-1002</td><td>Page de repli hors-ligne</td><td>Affichée lorsqu'une navigation ne peut aboutir</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-1003</td><td>Lecture de données en différé</td><td>Dernière réponse connue servie depuis le cache, signalée comme potentiellement datée</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">EF-1004</td><td>File d'écritures différées</td><td>Consultations, rendez-vous, entrées de journal, mouvements et messages</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-1005</td><td>Exclusions explicites de la file</td><td>Créations de compte (secret affiché une fois) et appels (dépendants de l'instant)</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-1006</td><td>Rejeu ordonné à la reconnexion</td><td>Envois dans l'ordre de saisie ; une entrée refusée définitivement est retirée pour ne pas bloquer la file</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">EF-1007</td><td>Indicateur d'état</td><td>Bandeau signalant la perte de connexion et le nombre d'envois en attente</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════ 7 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">7.</span> Règles de gestion</h2>
+  <p>
+    Les règles ci-dessous sont opposables : elles définissent le comportement attendu du
+    système indépendamment de son interface, et servent de base aux tests de recette.
+  </p>
+
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:28%">Règle</th><th>Énoncé</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="id">RG-01</td>
+        <td>Semaine de grossesse</td>
+        <td>La semaine est calculée comme le nombre de semaines révolues depuis la date de début de grossesse, bornée à l'intervalle [1 ; 42]. Elle n'est <strong>jamais stockée</strong>, afin de ne jamais être périmée. En l'absence de date de début, ou si celle-ci est postérieure à la date du jour, aucune semaine n'est affichée.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-02</td>
+        <td>Terme prévu</td>
+        <td>Si le terme n'est pas saisi, il est déduit du début de grossesse par ajout de 280 jours (40 semaines). Une valeur saisie manuellement prévaut toujours sur la valeur calculée.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-03</td>
+        <td>Seuils de vigilance</td>
+        <td>Une consultation déclenche le statut « surveillance » dès qu'une constante atteint l'un des seuils suivants : tension systolique &ge; 140 <em>ou</em> diastolique &ge; 90 mmHg, température &ge; 38 °C, pouls &ge; 110 bpm. Ces seuils servent au tri visuel et ne constituent pas un diagnostic.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-04</td>
+        <td>Statut suivant la dernière consultation</td>
+        <td>Le statut du dossier reflète toujours la consultation la <strong>plus récente par sa date</strong>. Une saisie rétroactive d'une ancienne consultation ne modifie donc pas le statut courant.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-05</td>
+        <td>Lecture des constantes</td>
+        <td>Les constantes sont saisies en texte libre. Le système en extrait la première valeur numérique, en acceptant la virgule comme séparateur décimal et les unités accolées. Une saisie non interprétable est conservée telle quelle mais ignorée pour l'évaluation des seuils.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-06</td>
+        <td>Alertes non persistées</td>
+        <td>Aucune alerte n'est stockée : la liste est recalculée à chaque demande à partir de l'état réel des dossiers. Il n'existe donc aucune file d'alertes obsolètes à purger, et la correction de la cause fait disparaître l'alerte.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-07</td>
+        <td>Suivi en retard</td>
+        <td>Un dossier sans consultation depuis plus de <strong>60 jours</strong> est signalé. Pour un dossier n'ayant jamais fait l'objet d'une consultation, le délai est décompté depuis sa date de création.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-08</td>
+        <td>Suppression d'un compte matrone</td>
+        <td>La suppression est refusée tant que des patientes lui sont rattachées, afin de préserver la référence dans leur historique. La marche à suivre est de désactiver le compte ou de réaffecter les dossiers au préalable.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-09</td>
+        <td>Rattachement d'un dossier</td>
+        <td>Un dossier de grossesse est rattaché à une matrone référente unique. Si la matrone est supprimée, le rattachement est vidé mais le dossier et son historique sont conservés.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-10</td>
+        <td>Périmètre des appels</td>
+        <td>Un appel n'engage que la patiente et sa matrone référente. L'administration, bien qu'ayant accès aux dossiers, ne peut ni initier ni rejoindre un appel.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-11</td>
+        <td>Expiration des appels</td>
+        <td>Un appel qui sonne depuis plus de <strong>45 secondes</strong> sans être décroché passe au statut « manqué ». Cette expiration est appliquée à la lecture, sans tâche planifiée à maintenir.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-12</td>
+        <td>Durée de vie des sessions</td>
+        <td>Une session expire au bout de <strong>30 jours</strong>. Elle est également invalidée par la déconnexion, la désactivation du compte ou un changement de mot de passe.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-13</td>
+        <td>Suppression en cascade</td>
+        <td>La suppression d'un dossier entraîne celle de ses consultations, rendez-vous, entrées de journal, relevés de mouvements, messages et appels. Les données de signalisation d'un appel sont purgées avec l'appel.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-14</td>
+        <td>Unicité de l'identifiant</td>
+        <td>Une adresse électronique ne peut être associée qu'à un seul compte, tous rôles confondus.</td>
+      </tr>
+      <tr>
+        <td class="id">RG-15</td>
+        <td>Écritures réservées à la patiente</td>
+        <td>Le journal de grossesse et le comptage des mouvements fœtaux ne peuvent être alimentés que par la patiente concernée ; matrone et administrateur y accèdent en lecture seule.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════ 8 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">8.</span> Modèle de données</h2>
+
+  <h3>8.1 Vue d'ensemble</h3>
+  <figure>
+    <svg viewBox="0 0 660 420" width="660" height="420" font-family="Segoe UI, Arial, sans-serif">
+      <defs>
+        <marker id="arw" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 z" fill="#5c6360"/>
+        </marker>
+      </defs>
+
+      <!-- User -->
+      <rect x="250" y="10" width="150" height="46" rx="6" fill="#0f6f68"/>
+      <text x="325" y="30" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">User</text>
+      <text x="325" y="45" text-anchor="middle" fill="#cfe6e4" font-size="9.5">compte + rôle</text>
+
+      <!-- Session -->
+      <rect x="30" y="10" width="130" height="46" rx="6" fill="#fff" stroke="#0f6f68" stroke-width="1.4"/>
+      <text x="95" y="30" text-anchor="middle" fill="#0a4f4a" font-size="12" font-weight="700">Session</text>
+      <text x="95" y="45" text-anchor="middle" fill="#5c6360" font-size="9">empreinte du jeton</text>
+
+      <!-- Matrone -->
+      <rect x="80" y="110" width="150" height="46" rx="6" fill="#0f6f68"/>
+      <text x="155" y="130" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">Matrone</text>
+      <text x="155" y="145" text-anchor="middle" fill="#cfe6e4" font-size="9.5">région, téléphone</text>
+
+      <!-- Patient -->
+      <rect x="255" y="200" width="160" height="52" rx="6" fill="#a8455e"/>
+      <text x="335" y="221" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">Patient</text>
+      <text x="335" y="237" text-anchor="middle" fill="#f6dbe1" font-size="9.5">dossier de grossesse</text>
+
+      <!-- Children of Patient -->
+      <rect x="14" y="300" width="94" height="42" rx="6" fill="#fff" stroke="#a8455e" stroke-width="1.3"/>
+      <text x="61" y="318" text-anchor="middle" fill="#7d2f44" font-size="10.5" font-weight="700">Consultation</text>
+      <text x="61" y="332" text-anchor="middle" fill="#5c6360" font-size="8">constantes, notes</text>
+
+      <rect x="115" y="300" width="94" height="42" rx="6" fill="#fff" stroke="#a8455e" stroke-width="1.3"/>
+      <text x="162" y="318" text-anchor="middle" fill="#7d2f44" font-size="10.5" font-weight="700">Appointment</text>
+      <text x="162" y="332" text-anchor="middle" fill="#5c6360" font-size="8">date, heure, type</text>
+
+      <rect x="216" y="300" width="94" height="42" rx="6" fill="#fff" stroke="#a8455e" stroke-width="1.3"/>
+      <text x="263" y="318" text-anchor="middle" fill="#7d2f44" font-size="10.5" font-weight="700">JournalEntry</text>
+      <text x="263" y="332" text-anchor="middle" fill="#5c6360" font-size="8">texte daté</text>
+
+      <rect x="317" y="300" width="94" height="42" rx="6" fill="#fff" stroke="#a8455e" stroke-width="1.3"/>
+      <text x="364" y="318" text-anchor="middle" fill="#7d2f44" font-size="10.5" font-weight="700">FetalMovement</text>
+      <text x="364" y="332" text-anchor="middle" fill="#5c6360" font-size="8">comptage</text>
+
+      <rect x="418" y="300" width="94" height="42" rx="6" fill="#fff" stroke="#a8455e" stroke-width="1.3"/>
+      <text x="465" y="318" text-anchor="middle" fill="#7d2f44" font-size="10.5" font-weight="700">Message</text>
+      <text x="465" y="332" text-anchor="middle" fill="#5c6360" font-size="8">fil de discussion</text>
+
+      <rect x="460" y="200" width="150" height="52" rx="6" fill="#fff" stroke="#c9922f" stroke-width="1.6"/>
+      <text x="535" y="221" text-anchor="middle" fill="#8a6216" font-size="12" font-weight="700">Call</text>
+      <text x="535" y="237" text-anchor="middle" fill="#5c6360" font-size="9">métadonnées d'appel</text>
+
+      <rect x="478" y="370" width="115" height="30" rx="6" fill="#fdf5e6" stroke="#c9922f" stroke-width="1.2"/>
+      <text x="535" y="389" text-anchor="middle" fill="#8a6216" font-size="10.5" font-weight="700">CallSignal</text>
+
+      <!-- Links -->
+      <line x1="250" y1="33" x2="168" y2="33" stroke="#5c6360" stroke-width="1.2" marker-end="url(#arw)"/>
+      <text x="205" y="27" text-anchor="middle" fill="#5c6360" font-size="8.5">1..n</text>
+
+      <line x1="290" y1="56" x2="180" y2="108" stroke="#5c6360" stroke-width="1.2" marker-end="url(#arw)"/>
+      <text x="218" y="76" text-anchor="middle" fill="#5c6360" font-size="8.5">0..1</text>
+
+      <line x1="335" y1="56" x2="335" y2="196" stroke="#5c6360" stroke-width="1.2" marker-end="url(#arw)"/>
+      <text x="349" y="130" text-anchor="middle" fill="#5c6360" font-size="8.5">0..1</text>
+
+      <line x1="180" y1="156" x2="272" y2="196" stroke="#5c6360" stroke-width="1.2" marker-end="url(#arw)"/>
+      <text x="212" y="184" text-anchor="middle" fill="#5c6360" font-size="8.5">1..n</text>
+
+      <line x1="280" y1="252" x2="66" y2="296" stroke="#5c6360" stroke-width="1" marker-end="url(#arw)"/>
+      <line x1="298" y1="252" x2="164" y2="296" stroke="#5c6360" stroke-width="1" marker-end="url(#arw)"/>
+      <line x1="318" y1="252" x2="266" y2="296" stroke="#5c6360" stroke-width="1" marker-end="url(#arw)"/>
+      <line x1="352" y1="252" x2="360" y2="296" stroke="#5c6360" stroke-width="1" marker-end="url(#arw)"/>
+      <line x1="390" y1="252" x2="458" y2="296" stroke="#5c6360" stroke-width="1" marker-end="url(#arw)"/>
+      <line x1="415" y1="224" x2="456" y2="224" stroke="#5c6360" stroke-width="1.2" marker-end="url(#arw)"/>
+      <line x1="535" y1="252" x2="535" y2="366" stroke="#c9922f" stroke-width="1.2" marker-end="url(#arw)"/>
+      <text x="581" y="312" text-anchor="middle" fill="#8a6216" font-size="8.5">négociation</text>
+    </svg>
+    <figcaption>Figure 1 — Entités principales et cardinalités. Un compte porte au plus une fiche matrone ou un dossier patiente.</figcaption>
+  </figure>
+
+  <h3>8.2 Description des entités</h3>
+  <table>
+    <thead><tr><th style="width:20%">Entité</th><th style="width:38%">Rôle</th><th>Points d'attention</th></tr></thead>
+    <tbody>
+      <tr><td><code>User</code></td><td>Compte de connexion et rôle</td><td>Porte l'empreinte du mot de passe, l'état d'activité, l'obligation de changement et la dernière connexion</td></tr>
+      <tr><td><code>Session</code></td><td>Session ouverte</td><td>Ne stocke que l'empreinte SHA-256 du jeton ; supprimée en cascade avec le compte</td></tr>
+      <tr><td><code>Matrone</code></td><td>Fiche métier d'une matrone</td><td>Région et téléphone ; rattachée à un compte unique</td></tr>
+      <tr><td><code>Patient</code></td><td>Dossier de grossesse</td><td>Le compte est facultatif : une patiente peut être suivie sans accès à l'application</td></tr>
+      <tr><td><code>Consultation</code></td><td>Acte de suivi et constantes</td><td>Conserve l'auteur de la saisie ; indexée par dossier et par date</td></tr>
+      <tr><td><code>Appointment</code></td><td>Rendez-vous planifié</td><td>Statut prévu / réalisé / annulé</td></tr>
+      <tr><td><code>JournalEntry</code></td><td>Entrée du journal de grossesse</td><td>Saisie par la patiente</td></tr>
+      <tr><td><code>FetalMovement</code></td><td>Relevé de mouvements fœtaux</td><td>Comptage horodaté, remarque facultative</td></tr>
+      <tr><td><code>Message</code></td><td>Message du fil patiente &#8596; matrone</td><td>Le fil est rattaché au dossier ; l'expéditeur est identifié par son compte</td></tr>
+      <tr><td><code>Call</code></td><td>Métadonnées d'un appel</td><td>Statut, présence de la vidéo, début et fin ; aucun contenu</td></tr>
+      <tr><td><code>CallSignal</code></td><td>Message de négociation</td><td>Offre, réponse ou candidat de connexion ; purgé avec l'appel</td></tr>
+    </tbody>
+  </table>
+
+  <h3>8.3 Dictionnaire des attributs sensibles</h3>
+  <table>
+    <thead><tr><th style="width:26%">Attribut</th><th style="width:16%">Type</th><th>Règle associée</th></tr></thead>
+    <tbody>
+      <tr><td><code>User.passwordHash</code></td><td>Texte</td><td>Empreinte dérivée ; le mot de passe en clair n'est jamais stocké ni journalisé</td></tr>
+      <tr><td><code>User.role</code></td><td>Texte</td><td>Valeurs admises : <code>admin</code>, <code>matrone</code>, <code>patiente</code></td></tr>
+      <tr><td><code>User.mustChangePassword</code></td><td>Booléen</td><td>Bloque l'accès aux données tant qu'il est vrai (EF-104)</td></tr>
+      <tr><td><code>Patient.status</code></td><td>Texte</td><td><code>stable</code> ou <code>alert</code> ; piloté par RG-03 et RG-04</td></tr>
+      <tr><td><code>Patient.pregnancyStart</code></td><td>Date</td><td>Source unique des calculs RG-01 et RG-02</td></tr>
+      <tr><td><code>Patient.matroneId</code></td><td>Référence</td><td>Vidée si la matrone est supprimée, le dossier étant conservé (RG-09)</td></tr>
+      <tr><td><code>Consultation.recordedById</code></td><td>Référence</td><td>Traçabilité de la saisie ; conservée même si l'auteur quitte le réseau</td></tr>
+      <tr><td><code>Call.status</code></td><td>Texte</td><td><code>ringing</code>, <code>active</code>, <code>ended</code>, <code>declined</code>, <code>missed</code></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════ 9 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">9.</span> Exigences non fonctionnelles</h2>
+
+  <h3>9.1 Sécurité</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:32%">Exigence</th><th>Niveau attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">ENF-101</td><td>Stockage des mots de passe</td><td>Fonction de dérivation lente <code>scrypt</code> (N = 2<sup>14</sup>), sel aléatoire par compte, comparaison à temps constant</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-102</td><td>Jetons de session</td><td>32 octets aléatoires ; seule l'empreinte SHA-256 est stockée, de sorte qu'une fuite de la base ne permette pas de rejouer une session</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-103</td><td>Cookie de session</td><td><code>httpOnly</code>, <code>SameSite=Lax</code>, <code>Secure</code> en production, portée limitée au site</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-104</td><td>Contrôle d'accès au plus près de la donnée</td><td>Chaque route et chaque page serveur vérifie la session et le périmètre avant toute lecture</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-105</td><td>Résistance à l'énumération</td><td>Réponse et temps de traitement identiques pour un identifiant inconnu, un mot de passe erroné et un compte désactivé</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-106</td><td>Validation des entrées</td><td>Toute donnée reçue est validée par schéma avant traitement ; les erreurs sont renvoyées champ par champ</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-107</td><td>Non-divulgation des erreurs internes</td><td>Les exceptions inattendues sont journalisées côté serveur et renvoyées sans détail technique</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-108</td><td>Transport chiffré</td><td>HTTPS obligatoire en production, sans exception</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-109</td><td>Confidentialité des communications</td><td>Le média des appels ne transite jamais par le serveur ; aucun contenu de conversation n'est enregistré</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-110</td><td>Limitation des tentatives de connexion</td><td>À mettre en œuvre au niveau de l'hébergeur ou d'un frontal — <em>non couvert par l'application</em> (voir chapitre 12)</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">ENF-111</td><td>Journal d'audit des accès aux dossiers</td><td>Non couvert par la version 1 ; à arbitrer selon le cadre réglementaire applicable</td><td class="pri"><span class="pill could">SOUHAITÉ</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>9.2 Performance et volumétrie</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:32%">Exigence</th><th>Niveau attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">ENF-201</td><td>Affichage d'un écran</td><td>Contenu utile visible en moins de 2,5 s sur connexion 3G et téléphone d'entrée de gamme</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-202</td><td>Latence d'un message</td><td>Message visible chez le destinataire en moins de 3 s dans des conditions normales</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-203</td><td>Établissement d'un appel</td><td>Sonnerie perçue en moins de 3 s ; flux établi en moins de 10 s après décrochage</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">ENF-204</td><td>Volumétrie cible</td><td>200 matrones, 10 000 dossiers, 100 000 consultations sans dégradation perceptible</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">ENF-205</td><td>Indexation</td><td>Les accès par dossier, par date, par statut et par rôle s'appuient sur des index dédiés</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-206</td><td>Sobriété du rafraîchissement</td><td>Le sondage ne transporte que les nouveautés et s'arrête quand l'onglet n'est pas visible</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>9.3 Disponibilité et robustesse</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:32%">Exigence</th><th>Niveau attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">ENF-301</td><td>Taux de disponibilité</td><td>99,5 % sur la plage 6 h – 22 h, hors interruptions programmées</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">ENF-302</td><td>Tolérance à la coupure réseau</td><td>Aucune saisie perdue : les écritures différables sont conservées localement et rejouées</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-303</td><td>Pages d'erreur maîtrisées</td><td>Erreur applicative, page introuvable et mode hors-ligne disposent d'un écran dédié en français</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-304</td><td>Sauvegarde</td><td>Sauvegarde quotidienne de la base avec rétention de 30 jours et restauration testée</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>9.4 Ergonomie et accessibilité</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:32%">Exigence</th><th>Niveau attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">ENF-401</td><td>Conception mobile d'abord</td><td>Le téléphone est le support principal des matrones ; l'écran large est une adaptation</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-402</td><td>Navigation au pouce</td><td>Barre d'onglets fixe en bas d'écran sur téléphone, cibles tactiles d'au moins 56 px de haut, icône par entrée</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-403</td><td>Langue</td><td>Interface, messages système et erreurs intégralement en français</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-404</td><td>Contraste et lisibilité</td><td>Contrastes conformes au niveau AA ; thèmes clair et sombre pris en charge</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">ENF-405</td><td>Formulaires accessibles</td><td>Étiquettes associées à chaque champ, messages d'erreur explicites, navigation au clavier</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+      <tr><td class="id">ENF-406</td><td>Retour visuel des actions</td><td>Toute action produit une confirmation ou un message d'échec compréhensible</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>9.5 Compatibilité et maintenabilité</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:32%">Exigence</th><th>Niveau attendu</th><th class="pri">Priorité</th></tr></thead>
+    <tbody>
+      <tr><td class="id">ENF-501</td><td>Navigateurs pris en charge</td><td>Deux dernières versions majeures de Chrome, Edge, Firefox et Safari, sur ordinateur et téléphone</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-502</td><td>Aucune installation requise</td><td>Accès par navigateur ; installation possible mais facultative</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-503</td><td>Typage strict</td><td>Code intégralement typé, vérification de types bloquante dans la chaîne d'intégration</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-504</td><td>Source unique du modèle</td><td>Le schéma de données est l'unique référence ; les types applicatifs en découlent</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-505</td><td>Documentation d'exploitation</td><td>Installation, création du premier administrateur, déploiement et limites connues documentés</td><td class="pri"><span class="pill must">ESSENTIEL</span></td></tr>
+      <tr><td class="id">ENF-506</td><td>Réversibilité</td><td>Aucune dépendance à un service tiers propriétaire pour la messagerie ou les appels ; base relationnelle standard exportable</td><td class="pri"><span class="pill should">IMPORTANT</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════ 10 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">10.</span> Architecture technique</h2>
+
+  <h3>10.1 Vue d'ensemble</h3>
+  <figure>
+    <svg viewBox="0 0 660 340" width="660" height="340" font-family="Segoe UI, Arial, sans-serif">
+      <defs>
+        <marker id="a2" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 z" fill="#0f6f68"/>
+        </marker>
+        <marker id="a3" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 z" fill="#a8455e"/>
+        </marker>
+      </defs>
+
+      <!-- clients -->
+      <rect x="18" y="30" width="150" height="86" rx="8" fill="#e6f2f1" stroke="#0f6f68" stroke-width="1.4"/>
+      <text x="93" y="52" text-anchor="middle" fill="#0a4f4a" font-size="12" font-weight="700">Navigateur matrone</text>
+      <text x="93" y="70" text-anchor="middle" fill="#5c6360" font-size="9">Interface + cache local</text>
+      <text x="93" y="85" text-anchor="middle" fill="#5c6360" font-size="9">File d'écritures différées</text>
+      <text x="93" y="100" text-anchor="middle" fill="#5c6360" font-size="9">(IndexedDB)</text>
+
+      <rect x="18" y="200" width="150" height="86" rx="8" fill="#fbeef1" stroke="#a8455e" stroke-width="1.4"/>
+      <text x="93" y="222" text-anchor="middle" fill="#7d2f44" font-size="12" font-weight="700">Navigateur patiente</text>
+      <text x="93" y="240" text-anchor="middle" fill="#5c6360" font-size="9">Interface + cache local</text>
+      <text x="93" y="255" text-anchor="middle" fill="#5c6360" font-size="9">Service worker</text>
+      <text x="93" y="270" text-anchor="middle" fill="#5c6360" font-size="9">(mode hors-ligne)</text>
+
+      <!-- P2P -->
+      <path d="M93,120 L93,196" stroke="#a8455e" stroke-width="2" stroke-dasharray="5,4" marker-end="url(#a3)"/>
+      <path d="M93,196 L93,120" stroke="#a8455e" stroke-width="2" stroke-dasharray="5,4" marker-end="url(#a3)"/>
+      <rect x="100" y="145" width="112" height="28" rx="4" fill="#fff" stroke="#a8455e" stroke-width="1"/>
+      <text x="156" y="157" text-anchor="middle" fill="#7d2f44" font-size="8.6" font-weight="700">Média WebRTC</text>
+      <text x="156" y="168" text-anchor="middle" fill="#7d2f44" font-size="8.2">pair-à-pair, hors serveur</text>
+
+      <!-- server -->
+      <rect x="250" y="60" width="200" height="200" rx="8" fill="#fff" stroke="#0f6f68" stroke-width="1.8"/>
+      <text x="350" y="84" text-anchor="middle" fill="#0a4f4a" font-size="12.5" font-weight="700">Application Next.js</text>
+      <text x="350" y="98" text-anchor="middle" fill="#5c6360" font-size="8.6">fonctions serverless</text>
+
+      <rect x="266" y="112" width="168" height="30" rx="4" fill="#e6f2f1"/>
+      <text x="350" y="131" text-anchor="middle" fill="#0a4f4a" font-size="10">Pages serveur (rendu + droits)</text>
+
+      <rect x="266" y="148" width="168" height="30" rx="4" fill="#e6f2f1"/>
+      <text x="350" y="167" text-anchor="middle" fill="#0a4f4a" font-size="10">Routes API (validation)</text>
+
+      <rect x="266" y="184" width="168" height="30" rx="4" fill="#e6f2f1"/>
+      <text x="350" y="203" text-anchor="middle" fill="#0a4f4a" font-size="10">Session · Périmètre · Règles</text>
+
+      <rect x="266" y="220" width="168" height="28" rx="4" fill="#fdf5e6"/>
+      <text x="350" y="238" text-anchor="middle" fill="#8a6216" font-size="10">Signalisation d'appel</text>
+
+      <!-- db -->
+      <rect x="512" y="120" width="130" height="80" rx="8" fill="#0f6f68"/>
+      <text x="577" y="150" text-anchor="middle" fill="#fff" font-size="12.5" font-weight="700">PostgreSQL</text>
+      <text x="577" y="167" text-anchor="middle" fill="#cfe6e4" font-size="9">via Prisma</text>
+      <text x="577" y="182" text-anchor="middle" fill="#cfe6e4" font-size="9">migrations versionnées</text>
+
+      <!-- arrows -->
+      <line x1="170" y1="72" x2="246" y2="110" stroke="#0f6f68" stroke-width="1.6" marker-end="url(#a2)"/>
+      <line x1="170" y1="240" x2="246" y2="200" stroke="#0f6f68" stroke-width="1.6" marker-end="url(#a2)"/>
+      <text x="208" y="84" text-anchor="middle" fill="#5c6360" font-size="8.4">HTTPS</text>
+      <text x="208" y="235" text-anchor="middle" fill="#5c6360" font-size="8.4">HTTPS</text>
+      <line x1="452" y1="160" x2="508" y2="160" stroke="#0f6f68" stroke-width="1.6" marker-end="url(#a2)"/>
+    </svg>
+    <figcaption>Figure 2 — Architecture d'ensemble. Seule la négociation d'appel passe par le serveur ; le média circule directement entre les deux terminaux.</figcaption>
+  </figure>
+
+  <h3>10.2 Pile technologique retenue</h3>
+  <table>
+    <thead><tr><th style="width:24%">Couche</th><th style="width:28%">Technologie</th><th>Motif du choix</th></tr></thead>
+    <tbody>
+      <tr><td>Cadre applicatif</td><td>Next.js 16 (App Router)</td><td>Rendu serveur et routes API dans un seul projet : un unique déploiement, un seul modèle de sécurité</td></tr>
+      <tr><td>Interface</td><td>React 19, TypeScript 5</td><td>Typage de bout en bout, du schéma de données jusqu'au composant</td></tr>
+      <tr><td>Présentation</td><td>Tailwind CSS 4, composants Radix</td><td>Cohérence visuelle, comportements accessibles éprouvés (dialogues, onglets, listes déroulantes)</td></tr>
+      <tr><td>Accès aux données</td><td>Prisma</td><td>Schéma unique faisant foi, migrations versionnées, requêtes typées</td></tr>
+      <tr><td>Base de données</td><td>PostgreSQL</td><td>Standard relationnel, même moteur en développement et en production, offres gérées disponibles</td></tr>
+      <tr><td>Validation</td><td>Zod</td><td>Schémas partagés entre validation d'entrée et types applicatifs</td></tr>
+      <tr><td>Temps réel</td><td>Sondage HTTP incrémental</td><td>Aucune connexion persistante possible en environnement serverless</td></tr>
+      <tr><td>Communication</td><td>WebRTC</td><td>Média direct entre pairs : confidentialité et absence de coût de bande passante serveur</td></tr>
+      <tr><td>Hors-ligne</td><td>Service worker et IndexedDB</td><td>Saisie possible sans réseau, rejeu automatique au retour de la connexion</td></tr>
+      <tr><td>Hébergement</td><td>Plateforme serverless (Vercel)</td><td>Mise à l'échelle automatique, HTTPS et déploiement continu inclus</td></tr>
+    </tbody>
+  </table>
+
+  <h3>10.3 Arbitrages structurants</h3>
+
+  <h4>Contrôle d'accès dans chaque route plutôt qu'en amont</h4>
+  <p>
+    Il n'existe volontairement pas de filtre d'authentification global : l'accès aux données
+    n'est pas possible depuis l'exécution en périphérie de réseau, et un filtre global aurait
+    donné une fausse impression de protection. Le contrôle est donc effectué au plus près de la
+    donnée, dans chaque route et chaque page serveur. Le coût est une répétition assumée ; le
+    gain est qu'aucun chemin d'accès ne peut contourner la vérification.
+  </p>
+
+  <h4>Sondage plutôt que connexion permanente</h4>
+  <p>
+    La messagerie et la détection des appels entrants reposent sur un sondage HTTP incrémental
+    de trois secondes plutôt que sur une connexion permanente. Ce choix découle directement du
+    mode d'hébergement : en fonctions serverless, aucune connexion durable ne peut être
+    maintenue de façon fiable. Le coût est une latence de quelques secondes ; le gain est que
+    le service fonctionne partout, sans dépendance à un service tiers de messagerie temps réel.
+  </p>
+
+  <h4>Alertes calculées plutôt que stockées</h4>
+  <p>
+    Les alertes sont recalculées à chaque affichage à partir de l'état réel des dossiers. Le
+    coût est une requête un peu plus lourde ; le gain est l'absence totale d'alertes fantômes
+    et de mécanisme de purge à maintenir.
+  </p>
+
+  <h4>Semaine de grossesse calculée plutôt que stockée</h4>
+  <p>
+    La semaine de grossesse est dérivée de la date de début à chaque affichage. Une valeur
+    stockée aurait dû être recalculée périodiquement et serait devenue fausse en cas
+    d'interruption de la tâche correspondante.
+  </p>
+
+  <h4>Même moteur de base en développement et en production</h4>
+  <p>
+    Un schéma unique et un même moteur PostgreSQL dans tous les environnements garantissent que
+    les fichiers de migration sont réellement rejouables d'un environnement à l'autre, sans
+    divergence de comportement entre le développement et la production.
+  </p>
+</section>
+
+<!-- ══════════════════ 11 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">11.</span> Interfaces applicatives (API)</h2>
+
+  <h3>11.1 Conventions</h3>
+  <p>
+    Toutes les réponses suivent une forme unique : <code>{ success, data?, message?, errors? }</code>.
+    Les entrées sont validées par schéma avant tout traitement ; les erreurs de validation sont
+    restituées champ par champ. Un client typé unique centralise les appels côté interface, de
+    sorte qu'un changement de contrat se répercute à la compilation.
+  </p>
+  <table>
+    <thead><tr><th style="width:14%">Code</th><th style="width:26%">Signification</th><th>Cas d'emploi</th></tr></thead>
+    <tbody>
+      <tr><td>200 / 201</td><td>Succès</td><td>Lecture aboutie, ou création effectuée</td></tr>
+      <tr><td>400</td><td>Données invalides</td><td>Échec de validation, avec le détail par champ</td></tr>
+      <tr><td>401</td><td>Authentification requise</td><td>Session absente ou expirée</td></tr>
+      <tr><td>403</td><td>Accès refusé</td><td>Rôle insuffisant pour l'opération demandée</td></tr>
+      <tr><td>404</td><td>Ressource introuvable</td><td>Ressource inexistante <strong>ou hors périmètre</strong> (règle de discrétion)</td></tr>
+      <tr><td>500</td><td>Erreur interne</td><td>Anomalie journalisée côté serveur, sans détail exposé au client</td></tr>
+    </tbody>
+  </table>
+
+  <h3>11.2 Inventaire des routes</h3>
+  <table>
+    <thead><tr><th style="width:20%">Méthode</th><th style="width:42%">Route</th><th>Accès</th></tr></thead>
+    <tbody>
+      <tr><td>POST</td><td><code>/api/auth/login</code></td><td>Public</td></tr>
+      <tr><td>POST</td><td><code>/api/auth/logout</code></td><td>Connecté</td></tr>
+      <tr><td>GET</td><td><code>/api/auth/me</code></td><td>Connecté</td></tr>
+      <tr><td>POST</td><td><code>/api/auth/password</code></td><td>Connecté</td></tr>
+      <tr><td>GET · POST</td><td><code>/api/matrones</code></td><td>Administrateur</td></tr>
+      <tr><td>GET · PATCH · DELETE</td><td><code>/api/matrones/:id</code></td><td>Administrateur</td></tr>
+      <tr><td>POST</td><td><code>/api/matrones/:id/password</code></td><td>Administrateur</td></tr>
+      <tr><td>GET</td><td><code>/api/patients</code></td><td>Selon périmètre</td></tr>
+      <tr><td>POST</td><td><code>/api/patients</code></td><td>Administrateur, matrone</td></tr>
+      <tr><td>GET · PATCH</td><td><code>/api/patients/:id</code></td><td>Selon périmètre</td></tr>
+      <tr><td>DELETE</td><td><code>/api/patients/:id</code></td><td>Administrateur</td></tr>
+      <tr><td>GET</td><td><code>/api/patients/:id/consultations</code></td><td>Selon périmètre</td></tr>
+      <tr><td>POST</td><td><code>/api/patients/:id/consultations</code></td><td>Administrateur, matrone</td></tr>
+      <tr><td>GET</td><td><code>/api/patients/:id/journal</code> · <code>/movements</code></td><td>Selon périmètre</td></tr>
+      <tr><td>POST</td><td><code>/api/patients/:id/journal</code> · <code>/movements</code></td><td>La patiente concernée</td></tr>
+      <tr><td>GET · POST</td><td><code>/api/patients/:id/messages</code></td><td>Selon périmètre</td></tr>
+      <tr><td>GET</td><td><code>/api/conversations</code></td><td>Selon périmètre</td></tr>
+      <tr><td>GET · POST</td><td><code>/api/patients/:id/calls</code></td><td>Patiente et sa matrone</td></tr>
+      <tr><td>GET</td><td><code>/api/calls/incoming</code></td><td>Patiente et matrone</td></tr>
+      <tr><td>GET · PATCH</td><td><code>/api/calls/:id</code></td><td>Parties de l'appel</td></tr>
+      <tr><td>GET · POST</td><td><code>/api/calls/:id/signals</code></td><td>Parties de l'appel</td></tr>
+      <tr><td>GET · POST</td><td><code>/api/appointments</code></td><td>Selon périmètre</td></tr>
+      <tr><td>GET</td><td><code>/api/stats</code></td><td>Selon périmètre</td></tr>
+      <tr><td>GET</td><td><code>/api/alerts</code></td><td>Selon périmètre</td></tr>
+    </tbody>
+  </table>
+
+  <h3>11.3 Interfaces externes</h3>
+  <table>
+    <thead><tr><th style="width:24%">Interface</th><th style="width:24%">Nature</th><th>Rôle et criticité</th></tr></thead>
+    <tbody>
+      <tr><td>Serveurs STUN publics</td><td>Sortante, facultative</td><td>Découverte de l'adresse publique pour l'établissement des appels ; utilisés par défaut</td></tr>
+      <tr><td>Serveur TURN</td><td>Sortante, recommandée</td><td>Relais nécessaire lorsque la connexion directe échoue ; à fournir pour une fiabilité complète des appels</td></tr>
+      <tr><td>Base PostgreSQL gérée</td><td>Sortante, critique</td><td>Persistance de l'ensemble des données ; indisponibilité = service hors service</td></tr>
+      <tr><td>Plateforme d'hébergement</td><td>Infrastructure</td><td>Exécution, HTTPS, déploiement continu</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════ 12 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">12.</span> Sécurité, confidentialité et conformité</h2>
+
+  <h3>12.1 Nature des données traitées</h3>
+  <p>
+    La plateforme traite des <strong>données de santé à caractère personnel</strong> : identité,
+    coordonnées, état de grossesse, constantes vitales, observations médicales et échanges entre
+    la patiente et sa matrone. Ce classement conditionne les obligations décrites ci-dessous.
+  </p>
+
+  <h3>12.2 Mesures de protection mises en œuvre</h3>
+  <table>
+    <thead><tr><th style="width:30%">Mesure</th><th>Mise en œuvre</th></tr></thead>
+    <tbody>
+      <tr><td>Cloisonnement des dossiers</td><td>Filtrage systématique par périmètre à chaque lecture et à chaque écriture</td></tr>
+      <tr><td>Non-divulgation d'existence</td><td>Réponse « introuvable » pour tout dossier hors périmètre</td></tr>
+      <tr><td>Protection des secrets</td><td>Mots de passe dérivés par fonction lente et salée ; jetons de session stockés sous forme d'empreinte</td></tr>
+      <tr><td>Provisionnement contrôlé</td><td>Aucune inscription publique ; création par un professionnel identifié uniquement</td></tr>
+      <tr><td>Révocation immédiate</td><td>Désactivation ou changement de mot de passe : toutes les sessions ouvertes tombent</td></tr>
+      <tr><td>Confidentialité des appels</td><td>Média en pair-à-pair ; aucune donnée de contenu stockée, uniquement les métadonnées</td></tr>
+      <tr><td>Minimisation</td><td>Aucune donnée de démonstration, aucune collecte au-delà du besoin du suivi</td></tr>
+      <tr><td>Transport chiffré</td><td>HTTPS obligatoire, imposé par la plateforme d'hébergement</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.3 Écarts identifiés et à traiter</h3>
+  <p>
+    Les points suivants sont connus et documentés. Ils doivent faire l'objet d'un arbitrage
+    explicite de la maîtrise d'ouvrage <strong>avant toute mise en production réelle</strong>.
+  </p>
+  <table>
+    <thead><tr><th style="width:30%">Écart</th><th style="width:34%">Risque associé</th><th>Traitement proposé</th></tr></thead>
+    <tbody>
+      <tr><td>Absence de limitation des tentatives de connexion</td><td>Attaque par essais successifs sur un compte connu</td><td>Mise en place au niveau du frontal ou de l'hébergeur</td></tr>
+      <tr><td>Absence de journal d'audit des accès</td><td>Impossibilité de démontrer qui a consulté quel dossier</td><td>Ajout d'une journalisation des accès en lecture, à arbitrer</td></tr>
+      <tr><td>Pas de réinitialisation autonome du mot de passe</td><td>Dépendance à la disponibilité de l'administrateur</td><td>Procédure organisationnelle documentée, ou envoi d'un lien de réinitialisation</td></tr>
+      <tr><td>Agrément d'hébergement des données de santé</td><td>Non-conformité selon la juridiction visée</td><td>Vérification du cadre applicable et choix d'un hébergeur agréé si requis</td></tr>
+      <tr><td>Pas de traçabilité des téléconsultations</td><td>Non-conformité si une traçabilité est imposée</td><td>Journalisation étendue des métadonnées d'appel, à arbitrer</td></tr>
+      <tr><td>Appels dépendants du réseau du terminal</td><td>Échec de l'appel derrière certains réseaux restrictifs</td><td>Mise à disposition d'un serveur de relais TURN</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout risk">
+    <span class="t">Condition de mise en service</span>
+    <p>
+      La mise en production sur des données réelles est subordonnée à la décision écrite de la
+      maîtrise d'ouvrage sur chacun des six écarts ci-dessus : traitement, acceptation motivée
+      du risque, ou report documenté.
+    </p>
+  </div>
+
+  <h3>12.4 Obligations d'exploitation</h3>
+  <ul>
+    <li>Désigner un responsable de traitement et tenir le registre des traitements ;</li>
+    <li>Informer les patientes de la nature des données collectées et de leurs droits ;</li>
+    <li>Restreindre nominativement les comptes administrateurs et réviser la liste périodiquement ;</li>
+    <li>Conserver les secrets d'infrastructure hors du dépôt de code, exclusivement en variables d'environnement ;</li>
+    <li>Vérifier périodiquement la restauration effective des sauvegardes.</li>
+  </ul>
+</section>
+
+<!-- ══════════════════ 13 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">13.</span> Environnements, déploiement et exploitation</h2>
+
+  <h3>13.1 Environnements</h3>
+  <table>
+    <thead><tr><th style="width:20%">Environnement</th><th style="width:26%">Destination</th><th>Base de données et données</th></tr></thead>
+    <tbody>
+      <tr><td>Développement</td><td>Poste du développeur</td><td>PostgreSQL local ou instance gérée dédiée ; données de test</td></tr>
+      <tr><td>Recette</td><td>Validation métier avant mise en service</td><td>Instance distincte ; données de test représentatives, jamais de données réelles</td></tr>
+      <tr><td>Production</td><td>Usage réel du réseau</td><td>Instance gérée sauvegardée ; démarrage à vide, aucune donnée de démonstration</td></tr>
+    </tbody>
+  </table>
+
+  <h3>13.2 Chaîne d'intégration et de déploiement</h3>
+  <p>
+    Chaque livraison sur la branche principale déclenche automatiquement la vérification des
+    types, la construction de l'application puis son déploiement. Un échec à l'une de ces étapes
+    interrompt la chaîne : aucune version ne peut être mise en ligne sans avoir été construite
+    avec succès.
+  </p>
+  <table>
+    <thead><tr><th style="width:26%">Étape</th><th>Contenu</th></tr></thead>
+    <tbody>
+      <tr><td>1. Installation</td><td>Récupération des dépendances et génération du client d'accès aux données</td></tr>
+      <tr><td>2. Vérification des types</td><td>Contrôle strict, bloquant en cas d'erreur</td></tr>
+      <tr><td>3. Construction</td><td>Compilation de l'application</td></tr>
+      <tr><td>4. Migration</td><td>Application des migrations en attente sur la base cible</td></tr>
+      <tr><td>5. Déploiement</td><td>Mise en ligne sur la plateforme d'hébergement</td></tr>
+    </tbody>
+  </table>
+
+  <h3>13.3 Configuration requise</h3>
+  <table>
+    <thead><tr><th style="width:34%">Variable</th><th style="width:16%">Caractère</th><th>Rôle</th></tr></thead>
+    <tbody>
+      <tr><td><code>DATABASE_URL</code></td><td>Obligatoire</td><td>Chaîne de connexion à la base PostgreSQL</td></tr>
+      <tr><td><code>DIRECT_URL</code></td><td>Conditionnelle</td><td>Connexion directe pour les migrations lorsqu'un gestionnaire de pool est interposé</td></tr>
+      <tr><td><code>NEXT_PUBLIC_TURN_URL</code></td><td>Recommandée</td><td>Serveur de relais pour la fiabilité des appels</td></tr>
+      <tr><td><code>NEXT_PUBLIC_TURN_USERNAME</code> / <code>_CREDENTIAL</code></td><td>Recommandées</td><td>Identifiants du relais ; exposés au navigateur, donc dédiés et à durée de vie limitée</td></tr>
+      <tr><td><code>VERCEL_TOKEN</code>, <code>VERCEL_ORG_ID</code>, <code>VERCEL_PROJECT_ID</code></td><td>Obligatoires</td><td>Secrets de déploiement, conservés dans le dépôt de secrets et jamais dans le code</td></tr>
+    </tbody>
+  </table>
+
+  <h3>13.4 Mise en service initiale</h3>
+  <ol>
+    <li>Provisionner la base de données et renseigner la configuration ;</li>
+    <li>Appliquer les migrations sur la base de production ;</li>
+    <li>Créer le compte administrateur initial par la commande dédiée ; le mot de passe provisoire n'est affiché qu'une fois ;</li>
+    <li>Se connecter et remplacer immédiatement ce mot de passe ;</li>
+    <li>Créer les comptes matrones ; chaque matrone crée ensuite les dossiers de ses patientes.</li>
+  </ol>
+
+  <h3>13.5 Exploitation courante</h3>
+  <table>
+    <thead><tr><th style="width:30%">Activité</th><th style="width:20%">Fréquence</th><th>Responsable</th></tr></thead>
+    <tbody>
+      <tr><td>Sauvegarde de la base</td><td>Quotidienne</td><td>Hébergeur / exploitation</td></tr>
+      <tr><td>Test de restauration</td><td>Trimestrielle</td><td>Exploitation</td></tr>
+      <tr><td>Revue des comptes actifs</td><td>Trimestrielle</td><td>Administrateur du réseau</td></tr>
+      <tr><td>Mise à jour des dépendances</td><td>Mensuelle</td><td>Maîtrise d'œuvre</td></tr>
+      <tr><td>Revue des alertes non traitées</td><td>Hebdomadaire</td><td>Responsable du réseau</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════ 14 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">14.</span> Livrables attendus</h2>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:32%">Livrable</th><th>Contenu</th></tr></thead>
+    <tbody>
+      <tr><td class="id">LV-01</td><td>Code source complet</td><td>Dépôt versionné, historique conservé, dépendances déclarées</td></tr>
+      <tr><td class="id">LV-02</td><td>Schéma de données et migrations</td><td>Schéma faisant foi et fichiers de migration rejouables</td></tr>
+      <tr><td class="id">LV-03</td><td>Application déployée</td><td>Environnements de recette et de production accessibles en HTTPS</td></tr>
+      <tr><td class="id">LV-04</td><td>Documentation technique</td><td>Installation, configuration, exploitation, limites connues</td></tr>
+      <tr><td class="id">LV-05</td><td>Outil de mise en service</td><td>Commande de création ou de réinitialisation du compte administrateur</td></tr>
+      <tr><td class="id">LV-06</td><td>Chaîne d'intégration continue</td><td>Configuration de vérification, de construction et de déploiement</td></tr>
+      <tr><td class="id">LV-07</td><td>Présent cahier des charges</td><td>Version validée et signée par les deux parties</td></tr>
+      <tr><td class="id">LV-08</td><td>Procès-verbal de recette</td><td>Résultats des scénarios du chapitre 15, réserves éventuelles</td></tr>
+      <tr><td class="id">LV-09</td><td>Guide d'utilisation par rôle</td><td>Trois fiches courtes : administrateur, matrone, patiente</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════ 15 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">15.</span> Recette et critères d'acceptation</h2>
+
+  <h3>15.1 Stratégie de vérification</h3>
+  <ul>
+    <li><strong>Vérification automatique</strong> — contrôle strict des types à chaque livraison, bloquant en cas d'erreur ;</li>
+    <li><strong>Recette fonctionnelle</strong> — exécution des scénarios ci-dessous par un utilisateur métier de chaque rôle ;</li>
+    <li><strong>Recette de sécurité</strong> — vérification manuelle du cloisonnement par tentative d'accès croisé ;</li>
+    <li><strong>Recette en conditions dégradées</strong> — mode avion, réseau lent, deux terminaux distincts pour les appels.</li>
+  </ul>
+
+  <h3>15.2 Scénarios de recette</h3>
+  <table>
+    <thead><tr><th class="id">Réf.</th><th style="width:28%">Scénario</th><th>Résultat attendu</th></tr></thead>
+    <tbody>
+      <tr><td class="id">TR-01</td><td>Première connexion administrateur</td><td>Le mot de passe provisoire donne accès uniquement à l'écran de changement ; l'accès aux données n'est possible qu'après le changement</td></tr>
+      <tr><td class="id">TR-02</td><td>Connexion avec un identifiant inexistant</td><td>Même message et temps de réponse comparable qu'avec un mot de passe erroné</td></tr>
+      <tr><td class="id">TR-03</td><td>Désactivation d'un compte connecté</td><td>La session en cours cesse de donner accès dès la requête suivante</td></tr>
+      <tr><td class="id">TR-04</td><td>Accès croisé entre matrones</td><td>La matrone A demandant le dossier d'une patiente de la matrone B obtient « introuvable », jamais « accès refusé »</td></tr>
+      <tr><td class="id">TR-05</td><td>Création d'un dossier sans accès patiente</td><td>Le dossier est pleinement exploitable ; aucun compte n'est créé</td></tr>
+      <tr><td class="id">TR-06</td><td>Consultation avec tension 150/95</td><td>Le dossier bascule en « surveillance » et l'alerte correspondante apparaît</td></tr>
+      <tr><td class="id">TR-07</td><td>Saisie rétroactive d'une ancienne consultation</td><td>Le statut du dossier reste celui de la consultation la plus récente</td></tr>
+      <tr><td class="id">TR-08</td><td>Correction d'une constante hors seuil</td><td>L'alerte disparaît sans intervention ni purge</td></tr>
+      <tr><td class="id">TR-09</td><td>Semaine de grossesse</td><td>Cohérente avec la date de début, bornée à 42, absente si la date est future</td></tr>
+      <tr><td class="id">TR-10</td><td>Suppression d'une matrone ayant des patientes</td><td>Refusée, avec un message indiquant la marche à suivre</td></tr>
+      <tr><td class="id">TR-11</td><td>Rendez-vous passé non clôturé</td><td>Génère une alerte de gravité moyenne</td></tr>
+      <tr><td class="id">TR-12</td><td>Dossier sans consultation depuis plus de 60 jours</td><td>Apparaît en « suivi en retard »</td></tr>
+      <tr><td class="id">TR-13</td><td>Envoi d'un message</td><td>Visible chez le destinataire en moins de 3 secondes sans rechargement de page</td></tr>
+      <tr><td class="id">TR-14</td><td>Onglet mis en arrière-plan</td><td>Le rafraîchissement s'interrompt puis reprend au retour au premier plan</td></tr>
+      <tr><td class="id">TR-15</td><td>Appel audio entre patiente et matrone</td><td>Sonnerie, décrochage, son audible dans les deux sens, raccrochage propre</td></tr>
+      <tr><td class="id">TR-16</td><td>Appel non décroché</td><td>Passe en « manqué » au bout de 45 secondes et apparaît dans le journal</td></tr>
+      <tr><td class="id">TR-17</td><td>Tentative d'appel par un administrateur</td><td>Refusée par le système</td></tr>
+      <tr><td class="id">TR-18</td><td>Saisie d'une consultation en mode avion</td><td>Confirmation d'une mise en attente, indicateur affiché, envoi automatique au retour du réseau</td></tr>
+      <tr><td class="id">TR-19</td><td>Trois saisies hors-ligne successives</td><td>Rejouées dans l'ordre de saisie</td></tr>
+      <tr><td class="id">TR-20</td><td>Navigation hors-ligne</td><td>Affichage de la page dédiée plutôt que d'une erreur du navigateur</td></tr>
+      <tr><td class="id">TR-21</td><td>Usage sur téléphone</td><td>Barre d'onglets accessible au pouce, aucun défilement horizontal, formulaires utilisables</td></tr>
+      <tr><td class="id">TR-22</td><td>Compteurs du tableau de bord</td><td>Cohérents avec le contenu réel de la base et limités au périmètre de l'utilisateur</td></tr>
+    </tbody>
+  </table>
+
+  <h3>15.3 Conditions de réception</h3>
+  <p>
+    La solution est réputée recevable lorsque l'ensemble des exigences marquées
+    <span class="pill must">ESSENTIEL</span> est satisfait, que les 22 scénarios de recette sont
+    exécutés avec succès, et qu'aucune anomalie bloquante ou majeure ne subsiste. Les anomalies
+    mineures sont consignées au procès-verbal avec un délai de correction convenu.
+  </p>
+  <table>
+    <thead><tr><th style="width:20%">Gravité</th><th style="width:38%">Définition</th><th>Effet sur la réception</th></tr></thead>
+    <tbody>
+      <tr><td>Bloquante</td><td>Perte de données, faille de cloisonnement, service inutilisable</td><td>Réception refusée</td></tr>
+      <tr><td>Majeure</td><td>Fonction essentielle inopérante sans contournement</td><td>Réception refusée</td></tr>
+      <tr><td>Mineure</td><td>Gêne d'usage, défaut d'affichage, contournement disponible</td><td>Réception avec réserves</td></tr>
+      <tr><td>Cosmétique</td><td>Écart de présentation sans effet fonctionnel</td><td>Sans effet</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════ 16 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">16.</span> Lotissement et planning</h2>
+  <p>
+    Le découpage ci-dessous ordonne les travaux par dépendance : chaque lot livre un ensemble
+    utilisable, et aucun lot ne peut démarrer avant que ses prérequis soient recettés.
+  </p>
+  <table>
+    <thead><tr><th style="width:10%">Lot</th><th style="width:26%">Contenu</th><th style="width:26%">Exigences couvertes</th><th>Prérequis</th></tr></thead>
+    <tbody>
+      <tr><td><strong>L1</strong></td><td>Socle : modèle de données, comptes, authentification, rôles</td><td>EF-101 à EF-110, ENF-101 à ENF-108</td><td>—</td></tr>
+      <tr><td><strong>L2</strong></td><td>Administration du réseau et gestion des comptes matrones</td><td>EF-201 à EF-208</td><td>L1</td></tr>
+      <tr><td><strong>L3</strong></td><td>Dossiers de grossesse, consultations et constantes</td><td>EF-301 à EF-406, RG-01 à RG-05</td><td>L1, L2</td></tr>
+      <tr><td><strong>L4</strong></td><td>Agenda, espace patiente, journal et mouvements fœtaux</td><td>EF-501 à EF-606</td><td>L3</td></tr>
+      <tr><td><strong>L5</strong></td><td>Messagerie et conversations</td><td>EF-701 à EF-707</td><td>L3</td></tr>
+      <tr><td><strong>L6</strong></td><td>Appels audio et vidéo pair-à-pair</td><td>EF-801 à EF-808, RG-10, RG-11</td><td>L5</td></tr>
+      <tr><td><strong>L7</strong></td><td>Alertes calculées et tableaux de bord</td><td>EF-901 à EF-907, RG-06, RG-07</td><td>L3, L4</td></tr>
+      <tr><td><strong>L8</strong></td><td>Mode hors-ligne et application installable</td><td>EF-1001 à EF-1007, ENF-302</td><td>L3 à L5</td></tr>
+      <tr><td><strong>L9</strong></td><td>Déploiement, documentation, recette et mise en service</td><td>LV-01 à LV-09, chapitre 15</td><td>Tous</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warn">
+    <span class="t">Jalons de validation</span>
+    <p>
+      <strong>J1</strong> — validation du présent cahier des charges &nbsp;·&nbsp;
+      <strong>J2</strong> — recette du socle (L1 à L3) &nbsp;·&nbsp;
+      <strong>J3</strong> — recette fonctionnelle complète (L4 à L8) &nbsp;·&nbsp;
+      <strong>J4</strong> — arbitrage des écarts de sécurité du chapitre 12 &nbsp;·&nbsp;
+      <strong>J5</strong> — mise en service et réception.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════ 17 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">17.</span> Risques et mesures de maîtrise</h2>
+  <table>
+    <thead>
+      <tr><th class="id">Réf.</th><th style="width:26%">Risque</th><th style="width:12%">Probabilité</th><th style="width:12%">Impact</th><th>Mesure de maîtrise</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="id">RQ-01</td><td>Échec des appels derrière certains réseaux restrictifs</td><td>Élevée</td><td>Moyen</td><td>Mise à disposition d'un serveur de relais ; message explicite et repli sur la messagerie</td></tr>
+      <tr><td class="id">RQ-02</td><td>Faible appropriation par les matrones peu à l'aise avec le numérique</td><td>Moyenne</td><td>Élevé</td><td>Interface conçue pour le téléphone, formation courte par rôle, accompagnement au démarrage</td></tr>
+      <tr><td class="id">RQ-03</td><td>Connectivité insuffisante sur le terrain</td><td>Élevée</td><td>Élevé</td><td>Mode hors-ligne avec file d'écritures différées et rejeu ordonné</td></tr>
+      <tr><td class="id">RQ-04</td><td>Non-conformité de l'hébergement de données de santé</td><td>Moyenne</td><td>Très élevé</td><td>Vérification du cadre applicable avant mise en service ; choix d'un hébergeur agréé si requis</td></tr>
+      <tr><td class="id">RQ-05</td><td>Compromission d'un compte par essais de mots de passe</td><td>Moyenne</td><td>Élevé</td><td>Politique de mot de passe, limitation des tentatives au niveau du frontal, révocation immédiate</td></tr>
+      <tr><td class="id">RQ-06</td><td>Perte de données</td><td>Faible</td><td>Très élevé</td><td>Sauvegarde quotidienne et test de restauration trimestriel</td></tr>
+      <tr><td class="id">RQ-07</td><td>Interprétation des seuils de vigilance comme un diagnostic</td><td>Moyenne</td><td>Élevé</td><td>Mention explicite dans l'interface et dans la formation : outil de tri, non d'aide au diagnostic</td></tr>
+      <tr><td class="id">RQ-08</td><td>Indisponibilité de la base de données</td><td>Faible</td><td>Élevé</td><td>Offre gérée avec engagement de disponibilité ; supervision et alerte à l'exploitation</td></tr>
+      <tr><td class="id">RQ-09</td><td>Dépendance à un administrateur unique pour les réinitialisations</td><td>Moyenne</td><td>Moyen</td><td>Désigner au moins deux administrateurs ; documenter la procédure</td></tr>
+      <tr><td class="id">RQ-10</td><td>Départ d'une matrone sans réaffectation de ses dossiers</td><td>Moyenne</td><td>Moyen</td><td>Suppression bloquée tant que des dossiers sont rattachés ; procédure de réaffectation documentée</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════ 18 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">18.</span> Évolutions envisagées</h2>
+  <p>
+    Les pistes ci-dessous ne font pas partie du périmètre contractuel de la version 1. Elles
+    sont recensées pour éclairer les choix d'architecture et préparer les arbitrages ultérieurs.
+  </p>
+  <table>
+    <thead><tr><th style="width:30%">Évolution</th><th style="width:14%">Horizon</th><th>Apport attendu</th></tr></thead>
+    <tbody>
+      <tr><td>Journal d'audit des accès aux dossiers</td><td>Court terme</td><td>Traçabilité exigible par le cadre réglementaire</td></tr>
+      <tr><td>Limitation applicative des tentatives de connexion</td><td>Court terme</td><td>Réduction du risque RQ-05 sans dépendance à l'hébergeur</td></tr>
+      <tr><td>Réinitialisation autonome du mot de passe</td><td>Court terme</td><td>Autonomie des utilisateurs, désengorgement de l'administration</td></tr>
+      <tr><td>Rappels automatiques de rendez-vous</td><td>Moyen terme</td><td>Réduction des rendez-vous non honorés</td></tr>
+      <tr><td>Notifications hors application</td><td>Moyen terme</td><td>Alerte de la matrone même application fermée</td></tr>
+      <tr><td>Réaffectation d'un portefeuille de patientes</td><td>Moyen terme</td><td>Continuité du suivi lors d'un départ (RQ-10)</td></tr>
+      <tr><td>Export des dossiers et courbes de suivi</td><td>Moyen terme</td><td>Transmission à une structure hospitalière, analyse épidémiologique</td></tr>
+      <tr><td>Interface en langues locales</td><td>Long terme</td><td>Élargissement de l'accès aux patientes non francophones</td></tr>
+      <tr><td>Partage de documents et d'images</td><td>Long terme</td><td>Transmission de résultats d'examens</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════════════ 19 ══════════════════ -->
+<section class="chapter">
+  <h2 class="chapter"><span class="num">19.</span> Annexes</h2>
+
+  <h3>19.1 Glossaire</h3>
+  <table>
+    <thead><tr><th style="width:26%">Terme</th><th>Définition retenue dans ce document</th></tr></thead>
+    <tbody>
+      <tr><td>Matrone</td><td>Professionnelle assurant le suivi prénatal de proximité auprès des femmes enceintes</td></tr>
+      <tr><td>Dossier de grossesse</td><td>Ensemble des données de suivi d'une patiente : identité, grossesse, consultations, rendez-vous, journal</td></tr>
+      <tr><td>Constantes vitales</td><td>Tension artérielle, poids, température et pouls relevés lors d'une consultation</td></tr>
+      <tr><td>Statut de surveillance</td><td>État d'un dossier dont la dernière consultation présente une constante hors seuil de vigilance</td></tr>
+      <tr><td>Périmètre</td><td>Ensemble des dossiers qu'un utilisateur est autorisé à voir, déterminé par son rôle</td></tr>
+      <tr><td>Alerte</td><td>Signalement calculé à la demande, jamais stocké, portant sur un dossier du périmètre</td></tr>
+      <tr><td>Application web progressive</td><td>Application accessible par navigateur, installable sur l'écran d'accueil et fonctionnant partiellement hors connexion</td></tr>
+      <tr><td>Pair-à-pair</td><td>Communication directe entre deux terminaux, sans transiter par un serveur intermédiaire</td></tr>
+      <tr><td>Signalisation</td><td>Échange préalable permettant à deux terminaux d'établir une connexion directe</td></tr>
+      <tr><td>Serveur de relais (TURN)</td><td>Serveur acheminant le flux lorsqu'une connexion directe est impossible</td></tr>
+      <tr><td>Sondage</td><td>Interrogation périodique du serveur pour détecter les nouveautés, à défaut de connexion permanente</td></tr>
+      <tr><td>Migration</td><td>Fichier décrivant une évolution du schéma de la base, rejouable d'un environnement à l'autre</td></tr>
+      <tr><td>Serverless</td><td>Mode d'exécution où le code est lancé à la demande, sans serveur maintenu en continu</td></tr>
+    </tbody>
+  </table>
+
+  <h3>19.2 Organisation du projet</h3>
+  <table>
+    <thead><tr><th style="width:26%">Emplacement</th><th>Contenu</th></tr></thead>
+    <tbody>
+      <tr><td><code>app/</code></td><td>Pages, espaces par rôle et routes de l'API</td></tr>
+      <tr><td><code>app/api/</code></td><td>Points d'entrée applicatifs : authentification, matrones, dossiers, messages, appels, agenda, statistiques, alertes</td></tr>
+      <tr><td><code>components/</code></td><td>Interfaces des trois espaces, messagerie, panneau d'appel, indicateur hors-ligne</td></tr>
+      <tr><td><code>lib/</code></td><td>Session, périmètre d'accès, validation, règles de grossesse, seuils de vigilance, file hors-ligne</td></tr>
+      <tr><td><code>prisma/</code></td><td>Schéma de données faisant foi et migrations versionnées</td></tr>
+      <tr><td><code>public/</code></td><td>Ressources statiques et service worker</td></tr>
+      <tr><td><code>scripts/</code></td><td>Création et réinitialisation du compte administrateur</td></tr>
+      <tr><td><code>docs/</code></td><td>Documentation projet, dont le présent cahier des charges</td></tr>
+    </tbody>
+  </table>
+
+  <h3>19.3 Validation du document</h3>
+  <p>
+    L'apposition des signatures ci-dessous vaut acceptation du périmètre, des exigences et des
+    critères de réception décrits dans ce document. Toute modification ultérieure fait l'objet
+    d'un avenant référencé et validé par les deux parties.
+  </p>
+  <div class="sig">
+    <div class="space"></div>
+    <div class="space"></div>
+  </div>
+  <div class="sig" style="margin-top:0">
+    <div>
+      <div class="role">Pour la maîtrise d'ouvrage</div>
+      Nom, qualité, date et signature
+    </div>
+    <div>
+      <div class="role">Pour la maîtrise d'œuvre</div>
+      Nom, qualité, date et signature
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:26px">
+    <span class="t">Fin du document</span>
+    <p>
+      Cahier des charges — Matronassist-ci · Version 1.0 · 10 août 2026 · 19 chapitres ·
+      75 exigences fonctionnelles, 27 exigences non fonctionnelles, 15 règles de gestion,
+      22 scénarios de recette.
+    </p>
+  </div>
+</section>
+
+</body>
+</html>
