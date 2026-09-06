@@ -30,17 +30,22 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Prisma exige les deux URLs dès qu'il lit le schéma, y compris pour
+      # `generate` pendant le build.
       - name: Build
         run: npm run build
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
       # Les migrations sont appliquées avant la mise en ligne, pour que le nouveau
-      # code ne rencontre jamais un schéma antérieur.
+      # code ne rencontre jamais un schéma antérieur. Elles empruntent DIRECT_URL:
+      # le DDL ne passe pas par un pool en mode transaction.
       - name: Apply database migrations
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
       # La mise en ligne n'a lieu que si le jeton Vercel est configuré. Sans lui,
       # le workflow reste utile: il valide typecheck, lint, build et migrations.
