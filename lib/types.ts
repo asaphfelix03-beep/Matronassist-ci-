@@ -119,6 +119,19 @@ export interface Message {
   mine: boolean
 }
 
+/**
+ * Réponse du fil de discussion.
+ *
+ * `readUpTo` porte l'accusé de lecture: tout message que j'ai envoyé à cette date
+ * ou avant a été lu par le correspondant. Une borne unique plutôt qu'un `readAt`
+ * par message, car le rafraîchissement incrémental ne renvoie pas les messages
+ * déjà connus.
+ */
+export interface MessageFeed {
+  messages: Message[]
+  readUpTo: string | null
+}
+
 /** Fil de discussion vu par la matrone: une ligne par patiente. */
 export interface Conversation {
   patientId: string

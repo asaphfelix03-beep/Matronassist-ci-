@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useCallback, useEffect, useRef, useState } from "react"
-import { Loader2, Phone, Send, Video } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { AlertCircle, Check, CheckCheck, Clock, Phone, RotateCw, Send, Video } from "lucide-react"
 
 import { useCalls } from "@/components/call-center"
 import { useNotifications } from "@/components/notification-center"
@@ -16,13 +16,43 @@ import type { Message } from "@/lib/types"
 /** Cadence de rafraîchissement du fil quand l'onglet est visible. */
 const POLL_MS = 3000
 
+/** En deçà de cette distance du bas, on considère que l'utilisateur suit le fil. */
+const STICK_TO_BOTTOM_PX = 120
+
+/**
+ * Message en cours d'envoi, affiché avant confirmation du serveur.
+ *
+ * Sur les réseaux mobiles visés, attendre la réponse avant d'afficher quoi que
+ * ce soit donne l'impression que l'application ne répond pas.
+ */
+interface PendingMessage {
+  /** Identifiant local, le temps que le serveur attribue le sien. */
+  localId: string
+  body: string
+  status: "sending" | "failed"
+}
+
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+  return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+}
+
+/** Libellé du séparateur de journée: « Aujourd'hui », « Hier », puis la date. */
+function formatDayLabel(iso: string): string {
+  const date = new Date(iso)
+  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const diffDays = Math.round((startOfToday.getTime() - day.getTime()) / 86400000)
+
+  if (diffDays === 0) return "Aujourd'hui"
+  if (diffDays === 1) return "Hier"
+  return date.toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })
+}
+
+function sameDay(a: string, b: string): boolean {
+  const x = new Date(a)
+  const y = new Date(b)
+  return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate()
 }
 
 /**
@@ -46,11 +76,17 @@ export function MessageThread({
   canCall?: boolean
 }) {
   const [messages, setMessages] = useState<Message[]>([])
+  const [pending, setPending] = useState<PendingMessage[]>([])
+  const [readUpTo, setReadUpTo] = useState<string | null>(null)
   const [draft, setDraft] = useState("")
   const [isLoading, setIsLoading] = useState(true)
-  const [isSending, setIsSending] = useState(false)
+
+  const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastMessageAtRef = useRef<string | null>(null)
+  /** Faux dès que l'utilisateur remonte lire l'historique. */
+  const stickToBottomRef = useRef(true)
+
   const { toast } = useToast()
   const { placeCall, isSupported, isBusy } = useCalls()
   const { clearThread, refresh, setActiveThread } = useNotifications()
@@ -76,13 +112,17 @@ export function MessageThread({
     let cancelled = false
     setIsLoading(true)
     setMessages([])
+    setPending([])
+    setReadUpTo(null)
     lastMessageAtRef.current = null
+    stickToBottomRef.current = true
 
     fetchMessages(patientId)
-      .then((initial) => {
+      .then((feed) => {
         if (cancelled) return
-        setMessages(initial)
-        lastMessageAtRef.current = initial[initial.length - 1]?.createdAt ?? null
+        setMessages(feed.messages)
+        setReadUpTo(feed.readUpTo)
+        lastMessageAtRef.current = feed.messages[feed.messages.length - 1]?.createdAt ?? null
         onRead?.(patientId)
         // La lecture du fil a marqué les messages comme lus côté serveur: le
         // compteur de la cloche doit le refléter tout de suite.
@@ -109,9 +149,12 @@ export function MessageThread({
     const tick = async () => {
       if (stopped || document.hidden) return
       try {
-        const fresh = await fetchMessages(patientId, lastMessageAtRef.current)
-        if (stopped || fresh.length === 0) return
-        merge(fresh)
+        const feed = await fetchMessages(patientId, lastMessageAtRef.current)
+        if (stopped) return
+        // `readUpTo` évolue même sans nouveau message: c'est l'accusé de lecture.
+        setReadUpTo(feed.readUpTo)
+        if (feed.messages.length === 0) return
+        merge(feed.messages)
         onRead?.(patientId)
         clearThread(patientId)
       } catch {
@@ -132,26 +175,74 @@ export function MessageThread({
     return () => setActiveThread(null)
   }, [patientId, setActiveThread])
 
+  // Le défilement automatique ne s'impose que si l'utilisateur suivait déjà le
+  // bas du fil: le ramener de force pendant qu'il relit l'historique est hostile.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" })
-  }, [messages])
+    if (stickToBottomRef.current) bottomRef.current?.scrollIntoView({ block: "end" })
+  }, [messages, pending])
 
-  const handleSend = async (e: React.FormEvent) => {
+  const handleScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_TO_BOTTOM_PX
+  }
+
+  /** Envoie, en affichant le message sans attendre la confirmation du serveur. */
+  const submit = useCallback(
+    async (body: string, localId: string) => {
+      setPending((prev) =>
+        prev.some((p) => p.localId === localId)
+          ? prev.map((p) => (p.localId === localId ? { ...p, status: "sending" } : p))
+          : [...prev, { localId, body, status: "sending" }],
+      )
+      stickToBottomRef.current = true
+
+      try {
+        const sent = await sendMessage(patientId, body)
+        setPending((prev) => prev.filter((p) => p.localId !== localId))
+        merge([sent])
+        refresh()
+      } catch (err) {
+        const described = describeWriteError(err, "Envoi impossible")
+        // Une écriture mise en file d'attente hors ligne partira d'elle-même:
+        // la laisser affichée créerait un doublon au retour du réseau.
+        const queued = described.title !== "Envoi impossible"
+        setPending((prev) =>
+          queued
+            ? prev.filter((p) => p.localId !== localId)
+            : prev.map((p) => (p.localId === localId ? { ...p, status: "failed" } : p)),
+        )
+        toast(described)
+      }
+    },
+    [patientId, merge, refresh, toast],
+  )
+
+  const handleSend = (e: React.FormEvent) => {
     e.preventDefault()
     const body = draft.trim()
     if (!body) return
 
-    setIsSending(true)
-    try {
-      merge([await sendMessage(patientId, body)])
-      setDraft("")
-      refresh()
-    } catch (err) {
-      toast(describeWriteError(err, "Envoi impossible"))
-    } finally {
-      setIsSending(false)
-    }
+    setDraft("")
+    void submit(body, `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
   }
+
+  /** Messages et séparateurs de journée, dans l'ordre d'affichage. */
+  const rows = useMemo(() => {
+    const items: Array<
+      { kind: "day"; key: string; label: string } | { kind: "message"; key: string; message: Message }
+    > = []
+
+    messages.forEach((message, index) => {
+      const previous = messages[index - 1]
+      if (!previous || !sameDay(previous.createdAt, message.createdAt)) {
+        items.push({ kind: "day", key: `day-${message.id}`, label: formatDayLabel(message.createdAt) })
+      }
+      items.push({ kind: "message", key: message.id, message })
+    })
+
+    return items
+  }, [messages])
 
   return (
     <div className="flex flex-col gap-3">
@@ -182,30 +273,88 @@ export function MessageThread({
         </div>
       )}
 
-      <div className="max-h-[420px] min-h-[160px] overflow-y-auto rounded-lg border bg-muted/20 p-3 space-y-3">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="max-h-[420px] min-h-[160px] overflow-y-auto rounded-lg border bg-muted/20 p-3 space-y-3"
+      >
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Chargement…</p>
-        ) : messages.length === 0 ? (
+        ) : messages.length === 0 && pending.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">{emptyLabel}</p>
         ) : (
-          messages.map((message) => (
-            <div key={message.id} className={`flex ${message.mine ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                  message.mine ? "bg-primary text-primary-foreground" : "bg-card border"
-                }`}
-              >
-                {!message.mine && <div className="text-xs font-bold mb-0.5">{message.senderName}</div>}
-                <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
+          rows.map((row) =>
+            row.kind === "day" ? (
+              <div key={row.key} className="flex items-center gap-3 py-1">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {row.label}
+                </span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            ) : (
+              <div key={row.key} className={`flex ${row.message.mine ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`text-[10px] mt-1 ${message.mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+                  className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                    row.message.mine ? "bg-primary text-primary-foreground" : "bg-card border"
+                  }`}
                 >
-                  {formatTime(message.createdAt)}
+                  {!row.message.mine && <div className="text-xs font-bold mb-0.5">{row.message.senderName}</div>}
+                  <p className="text-sm whitespace-pre-wrap break-words">{row.message.body}</p>
+                  <div
+                    className={`flex items-center justify-end gap-1 text-[10px] mt-1 ${
+                      row.message.mine ? "text-primary-foreground/70" : "text-muted-foreground"
+                    }`}
+                  >
+                    <span>{formatTime(row.message.createdAt)}</span>
+                    {row.message.mine &&
+                      (readUpTo !== null && row.message.createdAt <= readUpTo ? (
+                        <CheckCheck className="w-3.5 h-3.5" aria-label="Lu" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5" aria-label="Envoyé" />
+                      ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ),
+          )
         )}
+
+        {pending.map((item) => (
+          <div key={item.localId} className="flex justify-end">
+            <div
+              className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                item.status === "failed"
+                  ? "border border-destructive bg-destructive/10"
+                  : "bg-primary/60 text-primary-foreground"
+              }`}
+            >
+              <p className="text-sm whitespace-pre-wrap break-words">{item.body}</p>
+              <div className="flex items-center justify-end gap-1 text-[10px] mt-1">
+                {item.status === "sending" ? (
+                  <>
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Envoi…</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-3.5 h-3.5 text-destructive" />
+                    <span className="text-destructive">Non envoyé</span>
+                    <button
+                      type="button"
+                      onClick={() => void submit(item.body, item.localId)}
+                      className="ml-1 inline-flex items-center gap-1 font-bold text-destructive underline"
+                    >
+                      <RotateCw className="w-3 h-3" />
+                      Réessayer
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+
         <div ref={bottomRef} />
       </div>
 
@@ -225,8 +374,8 @@ export function MessageThread({
             }
           }}
         />
-        <Button type="submit" size="icon" className="h-10 w-10 shrink-0" disabled={isSending || !draft.trim()}>
-          {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+        <Button type="submit" size="icon" className="h-10 w-10 shrink-0" disabled={!draft.trim()}>
+          <Send className="w-4 h-4" />
         </Button>
       </form>
     </div>

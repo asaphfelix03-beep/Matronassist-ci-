@@ -78,6 +78,13 @@ export function CallPanel({ call, onClose }: { call: CallSession; onClose: () =>
     let cancelled = false
 
     const setup = async () => {
+      // Remise à zéro explicite: le montage précédent a pu poser ces drapeaux
+      // (React remonte les effets en mode strict), et un état résiduel
+      // empêcherait cet appel-ci de se déclarer connecté.
+      closedRef.current = false
+      pendingCandidatesRef.current = []
+      lastSignalAtRef.current = null
+
       let stream: MediaStream
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: call.withVideo })
@@ -112,14 +119,29 @@ export function CallPanel({ call, onClose }: { call: CallSession; onClose: () =>
         }
       }
 
-      peer.onconnectionstatechange = () => {
+      const onStateChange = () => {
         if (closedRef.current) return
-        if (peer.connectionState === "connected") setPhase("connected")
-        if (peer.connectionState === "failed") {
+
+        // `connectionState` n'est pas signalé de façon fiable par tous les
+        // navigateurs; `iceConnectionState` sert de second témoin.
+        const isUp =
+          peer.connectionState === "connected" ||
+          peer.iceConnectionState === "connected" ||
+          peer.iceConnectionState === "completed"
+
+        if (isUp) {
+          setPhase("connected")
+          return
+        }
+
+        if (peer.connectionState === "failed" || peer.iceConnectionState === "failed") {
           setError("La connexion n'a pas pu être établie. Un réseau restrictif peut bloquer l'appel.")
           setPhase("ended")
         }
       }
+
+      peer.onconnectionstatechange = onStateChange
+      peer.oniceconnectionstatechange = onStateChange
 
       // L'appelant émet l'offre; le destinataire répond quand elle arrive.
       if (call.isCaller) {
@@ -142,10 +164,21 @@ export function CallPanel({ call, onClose }: { call: CallSession; onClose: () =>
     }
   }, [call.id, call.isCaller, call.withVideo, teardown])
 
+  // Ces valeurs sont lues dans la boucle sans la relancer: `onClose` change
+  // d'identité à chaque rendu du fournisseur, et `phase` à chaque étape de
+  // l'appel. Les mettre en dépendances reconstruisait la boucle en continu.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  const phaseRef = useRef(phase)
+  useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
+
   // Réception des signaux de l'autre pair et surveillance de l'état de l'appel.
   useEffect(() => {
-    if (phase === "ended") return
-
     let stopped = false
 
     const applyCandidates = async (peer: RTCPeerConnection) => {
@@ -157,7 +190,7 @@ export function CallPanel({ call, onClose }: { call: CallSession; onClose: () =>
 
     const tick = async () => {
       const peer = peerRef.current
-      if (!peer || stopped) return
+      if (!peer || stopped || phaseRef.current === "ended") return
 
       try {
         const [state, signals] = await Promise.all([
@@ -174,7 +207,7 @@ export function CallPanel({ call, onClose }: { call: CallSession; onClose: () =>
             title: state.status === "declined" ? "Appel refusé" : "Appel terminé",
             description: `Avec ${call.isCaller ? state.patientName : state.callerName}.`,
           })
-          onClose()
+          onCloseRef.current()
           return
         }
 
@@ -209,7 +242,7 @@ export function CallPanel({ call, onClose }: { call: CallSession; onClose: () =>
       stopped = true
       clearInterval(timer)
     }
-  }, [call.id, call.isCaller, onClose, phase, teardown, toast])
+  }, [call.id, call.isCaller, teardown, toast])
 
   // Compteur de durée, démarré à la connexion effective.
   useEffect(() => {

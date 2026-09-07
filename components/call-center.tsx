@@ -128,6 +128,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  /** Identité stable: recréer cette fonction relancerait les effets de l'appel. */
+  const closeActiveCall = useCallback(() => {
+    setActiveCall(null)
+    refresh()
+  }, [refresh])
+
   const value = useMemo<CallContextValue>(
     () => ({ placeCall, isSupported, isBusy: activeCall !== null || isStarting }),
     [placeCall, isSupported, activeCall, isStarting],
@@ -165,7 +171,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {activeCall && <CallPanel call={activeCall} onClose={() => setActiveCall(null)} />}
+      {activeCall && <CallPanel call={activeCall} onClose={closeActiveCall} />}
     </CallContext.Provider>
   )
 }

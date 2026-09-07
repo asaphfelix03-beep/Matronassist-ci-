@@ -9,6 +9,7 @@ import type {
   JournalEntry,
   MatroneAccount,
   Message,
+  MessageFeed,
   NotificationSnapshot,
   PatientDetail,
   PatientRecord,
@@ -237,7 +238,7 @@ export const fetchConversations = () => request<Conversation[]>("/api/conversati
 
 /** `since` limite la réponse aux messages postérieurs, pour un rafraîchissement continu. */
 export const fetchMessages = (patientId: string, since?: string | null) =>
-  request<Message[]>(
+  request<MessageFeed>(
     `/api/patients/${patientId}/messages${since ? `?since=${encodeURIComponent(since)}` : ""}`,
   )
 

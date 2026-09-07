@@ -5,6 +5,7 @@ import { handleRouteError, ok, requireUser } from "@/lib/api-auth"
 import { readJsonBody } from "@/lib/api-validation"
 import { prisma } from "@/lib/prisma"
 import { serializeMessage } from "@/lib/serializers"
+import type { MessageFeed } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
@@ -46,7 +47,22 @@ export async function GET(request: Request, context: RouteContext) {
       data: { readAt: new Date() },
     })
 
-    return ok(messages.map((message) => serializeMessage(message, user.id)))
+    // Accusé de lecture: date du dernier de MES messages que le correspondant a
+    // lu. Le rafraîchissement incrémental ne renvoie que les nouveaux messages,
+    // si bien qu'un `readAt` posé après coup ne parviendrait jamais à l'auteur.
+    // Cette borne unique suffit à marquer comme lus tous les messages antérieurs.
+    const lastRead = await prisma.message.findFirst({
+      where: { patientId: id, senderId: user.id, readAt: { not: null } },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    })
+
+    const payload: MessageFeed = {
+      messages: messages.map((message) => serializeMessage(message, user.id)),
+      readUpTo: lastRead?.createdAt.toISOString() ?? null,
+    }
+
+    return ok(payload)
   } catch (err) {
     return handleRouteError(err, "/api/patients/[id]/messages GET")
   }
