@@ -9,6 +9,7 @@ import type {
   JournalEntry,
   MatroneAccount,
   Message,
+  NotificationSnapshot,
   PatientDetail,
   PatientRecord,
   SignalKind,
@@ -243,12 +244,18 @@ export const fetchMessages = (patientId: string, since?: string | null) =>
 export const sendMessage = (patientId: string, body: string) =>
   post<Message>(`/api/patients/${patientId}/messages`, { body })
 
+// --- Notifications ----------------------------------------------------------
+
+/**
+ * Instantané des messages non lus et de l'appel entrant, en une seule requête.
+ * Sondé en continu par le centre de notifications.
+ */
+export const fetchNotifications = () => request<NotificationSnapshot>("/api/notifications")
+
 // --- Appels (WebRTC) --------------------------------------------------------
 
 export const startCall = (patientId: string, withVideo: boolean) =>
   post<CallSession>(`/api/patients/${patientId}/calls`, { withVideo })
-
-export const fetchIncomingCall = () => request<CallSession | null>("/api/calls/incoming")
 
 export const fetchCall = (callId: string) => request<CallSession>(`/api/calls/${callId}`)
 

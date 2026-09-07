@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Loader2, Phone, Send, Video } from "lucide-react"
 
 import { useCalls } from "@/components/call-center"
+import { useNotifications } from "@/components/notification-center"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
@@ -52,6 +53,7 @@ export function MessageThread({
   const lastMessageAtRef = useRef<string | null>(null)
   const { toast } = useToast()
   const { placeCall, isSupported, isBusy } = useCalls()
+  const { clearThread, refresh, setActiveThread } = useNotifications()
 
   /** Fusionne sans doublon: un message envoyé peut revenir par le sondage. */
   const merge = useCallback((incoming: Message[]) => {
@@ -82,6 +84,9 @@ export function MessageThread({
         setMessages(initial)
         lastMessageAtRef.current = initial[initial.length - 1]?.createdAt ?? null
         onRead?.(patientId)
+        // La lecture du fil a marqué les messages comme lus côté serveur: le
+        // compteur de la cloche doit le refléter tout de suite.
+        clearThread(patientId)
       })
       .catch((err) => {
         if (!cancelled) {
@@ -95,7 +100,7 @@ export function MessageThread({
     return () => {
       cancelled = true
     }
-  }, [patientId, onRead, toast])
+  }, [patientId, onRead, toast, clearThread])
 
   // Rafraîchissement continu des seules nouveautés.
   useEffect(() => {
@@ -108,6 +113,7 @@ export function MessageThread({
         if (stopped || fresh.length === 0) return
         merge(fresh)
         onRead?.(patientId)
+        clearThread(patientId)
       } catch {
         // Une itération ratée n'interrompt pas le fil: la suivante réessaiera.
       }
@@ -118,7 +124,13 @@ export function MessageThread({
       stopped = true
       clearInterval(timer)
     }
-  }, [patientId, merge, onRead])
+  }, [patientId, merge, onRead, clearThread])
+
+  // Tant que ce fil est monté, ses messages n'ont pas à être notifiés.
+  useEffect(() => {
+    setActiveThread(patientId)
+    return () => setActiveThread(null)
+  }, [patientId, setActiveThread])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" })
@@ -133,6 +145,7 @@ export function MessageThread({
     try {
       merge([await sendMessage(patientId, body)])
       setDraft("")
+      refresh()
     } catch (err) {
       toast(describeWriteError(err, "Envoi impossible"))
     } finally {

@@ -4,14 +4,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Phone, PhoneOff, Video } from "lucide-react"
 
 import { CallPanel } from "@/components/call-panel"
+import { useNotifications } from "@/components/notification-center"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { answerCall, fetchIncomingCall, startCall } from "@/lib/api-client"
-import type { CallSession, UserRole } from "@/lib/types"
+import { answerCall, startCall } from "@/lib/api-client"
+import { ring } from "@/lib/sound"
+import type { CallSession } from "@/lib/types"
 import { supportsCalls } from "@/lib/webrtc"
-
-/** Cadence de détection des appels entrants. */
-const INCOMING_POLL_MS = 3000
 
 interface CallContextValue {
   /** Lance un appel vers le correspondant du dossier indiqué. */
@@ -31,33 +30,31 @@ export function useCalls(): CallContextValue {
 }
 
 /**
- * Gère le cycle de vie des appels pour toute l'application: détection des appels
- * entrants, sonnerie, et affichage du panneau d'appel.
+ * Gère le cycle de vie des appels pour toute l'application: sonnerie d'appel
+ * entrant, décrochage et affichage du panneau d'appel.
  *
- * La détection se fait par sondage plutôt que par WebSocket: l'application est
- * déployée en fonctions serverless, où aucune connexion persistante ne peut être
- * maintenue de façon fiable.
+ * La détection des appels entrants n'est plus faite ici: elle vient du centre de
+ * notifications, qui interroge une route unique pour les messages et les appels.
  */
-export function CallProvider({ role, children }: { role: UserRole; children: ReactNode }) {
-  const [incoming, setIncoming] = useState<CallSession | null>(null)
+export function CallProvider({ children }: { children: ReactNode }) {
   const [activeCall, setActiveCall] = useState<CallSession | null>(null)
   const [isStarting, setIsStarting] = useState(false)
   const [isSupported, setIsSupported] = useState(true)
+  const [declinedIds, setDeclinedIds] = useState<string[]>([])
   const { toast } = useToast()
+  const { incomingCall, refresh, isSoundEnabled } = useNotifications()
 
-  // L'état courant, lu dans l'intervalle de sondage sans le relancer.
+  // Un appel refusé ne doit pas resonner tant que le serveur ne l'a pas clos.
+  const incoming = incomingCall && !declinedIds.includes(incomingCall.id) ? incomingCall : null
+
+  // L'appel en cours, lu dans des gestionnaires asynchrones sans les relancer.
   // La synchronisation passe par un effet: écrire une ref pendant le rendu
   // n'est pas sûr avec le rendu concurrent de React.
   const activeRef = useRef<CallSession | null>(null)
-  const incomingRef = useRef<CallSession | null>(null)
 
   useEffect(() => {
     activeRef.current = activeCall
   }, [activeCall])
-
-  useEffect(() => {
-    incomingRef.current = incoming
-  }, [incoming])
 
   // `supportsCalls()` interroge les API du navigateur: la valeur n'est connue
   // qu'après le montage, d'où l'initialisation dans un effet.
@@ -65,33 +62,18 @@ export function CallProvider({ role, children }: { role: UserRole; children: Rea
     setIsSupported(supportsCalls())
   }, [])
 
-  const participatesInCalls = role === "patiente" || role === "matrone"
-
+  // Sonnerie au moment où un appel apparaît, une seule fois par appel.
+  const ringingIdRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!participatesInCalls) return
-
-    let stopped = false
-
-    const poll = async () => {
-      // Inutile de sonder pendant un appel ou quand l'onglet est masqué.
-      if (stopped || activeRef.current || document.hidden) return
-
-      try {
-        const call = await fetchIncomingCall()
-        if (!stopped) setIncoming(call)
-      } catch {
-        // Une erreur réseau ponctuelle ne doit pas interrompre la détection.
-      }
+    if (!incoming || activeCall) {
+      if (!incoming) ringingIdRef.current = null
+      return
     }
+    if (ringingIdRef.current === incoming.id) return
 
-    const timer = setInterval(poll, INCOMING_POLL_MS)
-    poll()
-
-    return () => {
-      stopped = true
-      clearInterval(timer)
-    }
-  }, [participatesInCalls])
+    ringingIdRef.current = incoming.id
+    if (isSoundEnabled) ring()
+  }, [incoming, activeCall, isSoundEnabled])
 
   const placeCall = useCallback(
     async (patientId: string, withVideo: boolean) => {
@@ -113,24 +95,34 @@ export function CallProvider({ role, children }: { role: UserRole; children: Rea
     [isStarting, toast],
   )
 
+  /** Retire l'appel de l'affichage sans attendre le prochain tour de sondage. */
+  const dismiss = useCallback(
+    (callId: string) => {
+      setDeclinedIds((prev) => (prev.includes(callId) ? prev : [...prev, callId]))
+      refresh()
+    },
+    [refresh],
+  )
+
   const accept = async () => {
     if (!incoming) return
+    const callId = incoming.id
     try {
-      const call = await answerCall(incoming.id, "accept")
-      setIncoming(null)
+      const call = await answerCall(callId, "accept")
+      dismiss(callId)
       setActiveCall(call)
     } catch (err) {
       toast({ title: "Impossible de décrocher", description: err instanceof Error ? err.message : String(err) })
-      setIncoming(null)
+      dismiss(callId)
     }
   }
 
   const decline = async () => {
     if (!incoming) return
-    const call = incoming
-    setIncoming(null)
+    const callId = incoming.id
+    dismiss(callId)
     try {
-      await answerCall(call.id, "decline")
+      await answerCall(callId, "decline")
     } catch {
       // L'appelant a peut-être déjà raccroché.
     }

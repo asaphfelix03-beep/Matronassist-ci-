@@ -4,6 +4,7 @@ import { AdminDashboard } from "@/components/admin-dashboard"
 import { CallProvider } from "@/components/call-center"
 import { MatroneDashboard } from "@/components/matrone-dashboard"
 import { Navbar } from "@/components/navbar"
+import { NotificationProvider } from "@/components/notification-center"
 import { PatienteDashboard } from "@/components/patiente-dashboard"
 import { getSessionUser } from "@/lib/session"
 
@@ -26,22 +27,24 @@ export default async function DashboardPage() {
   if (user.mustChangePassword) redirect("/change-password")
 
   return (
-    <CallProvider role={user.role}>
-      <div className="flex flex-col min-h-screen bg-background">
-        <Navbar user={user} />
+    <NotificationProvider role={user.role}>
+      <CallProvider>
+        <div className="flex flex-col min-h-screen bg-background">
+          <Navbar user={user} />
 
-        {/* La marge basse dégage la barre de navigation fixe du mobile. */}
-        <div className="p-4 pb-24 md:p-8 max-w-5xl mx-auto w-full space-y-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-2xl font-bold">Bonjour, {user.name}</h2>
-            <p className="text-muted-foreground">{GREETINGS[user.role]}</p>
+          {/* La marge basse dégage la barre de navigation fixe du mobile. */}
+          <div className="p-4 pb-24 md:p-8 max-w-5xl mx-auto w-full space-y-6">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-2xl font-bold">Bonjour, {user.name}</h2>
+              <p className="text-muted-foreground">{GREETINGS[user.role]}</p>
+            </div>
+
+            {user.role === "admin" && <AdminDashboard />}
+            {user.role === "matrone" && <MatroneDashboard />}
+            {user.role === "patiente" && <PatienteDashboard patientId={user.patientId} />}
           </div>
-
-          {user.role === "admin" && <AdminDashboard />}
-          {user.role === "matrone" && <MatroneDashboard />}
-          {user.role === "patiente" && <PatienteDashboard patientId={user.patientId} />}
         </div>
-      </div>
-    </CallProvider>
+      </CallProvider>
+    </NotificationProvider>
   )
 }

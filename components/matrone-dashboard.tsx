@@ -781,7 +781,12 @@ export function MatroneDashboard() {
                         <MessageThread
                           patientId={conversation.patientId}
                           onRead={markThreadRead}
-                          emptyLabel="Aucun message. Écrivez le premier."
+                          canCall={conversation.canReply}
+                          emptyLabel={
+                            conversation.canReply
+                              ? "Aucun message. Écrivez le premier."
+                              : "Cette patiente n'a pas d'accès à l'application : elle ne pourra ni répondre ni être appelée."
+                          }
                         />
                       </div>
                     )}

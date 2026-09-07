@@ -15,7 +15,7 @@
  *     qui seule connaît le sens métier de chaque requête.
  */
 
-const VERSION = "v1"
+const VERSION = "v2"
 const SHELL_CACHE = `shell-${VERSION}`
 const DATA_CACHE = `data-${VERSION}`
 const OFFLINE_URL = "/offline"
@@ -113,9 +113,28 @@ self.addEventListener("fetch", (event) => {
     // Les sondages temps réel n'ont aucun intérêt en différé.
     const isRealtime =
       url.pathname.startsWith("/api/calls/") ||
-      url.pathname === "/api/calls/incoming" ||
+      // Le sondage des notifications doit toujours refléter l'instant présent:
+      // une réponse servie depuis le cache figerait compteurs et appels entrants.
+      url.pathname === "/api/notifications" ||
       url.searchParams.has("since")
 
     if (!isRealtime) event.respondWith(handleApiRead(request))
   }
+})
+
+/**
+ * Un appui sur une notification ramène sur l'application plutôt que d'ouvrir un
+ * nouvel onglet: l'onglet déjà ouvert porte la session et l'état en cours.
+ */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close()
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (client.url.includes("/dashboard") && "focus" in client) return client.focus()
+      }
+      return self.clients.openWindow("/dashboard")
+    }),
+  )
 })

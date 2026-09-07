@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
-import { Bell, KeyRound, LogOut, Moon, Sun, User } from "lucide-react"
+import { Bell, BellOff, KeyRound, LogOut, MessageSquare, Moon, Sun, User, Volume2, VolumeX } from "lucide-react"
 
+import { useNotifications } from "@/components/notification-center"
 import { OfflineIndicator } from "@/components/offline-indicator"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -32,6 +33,7 @@ export function Navbar({ user }: { user: SessionUser }) {
   const router = useRouter()
   const { toast } = useToast()
   const { resolvedTheme, setTheme } = useTheme()
+  const { threads, unreadTotal, permission, requestPermission, isSoundEnabled, setSoundEnabled } = useNotifications()
 
   // Le thème résolu n'est connu qu'après hydratation: on n'affiche l'icône
   // correspondante qu'à ce moment, sinon le rendu serveur et client divergent.
@@ -40,6 +42,9 @@ export function Navbar({ user }: { user: SessionUser }) {
   // Les alertes concernent le suivi d'un portefeuille de patientes: elles ne sont
   // pas affichées dans l'espace patiente.
   const showsAlerts = user.role === "admin" || user.role === "matrone"
+
+  // Les fils de discussion n'existent qu'entre une patiente et sa matrone.
+  const showsMessages = user.role === "matrone" || user.role === "patiente"
 
   useEffect(() => {
     if (!showsAlerts) return
@@ -68,6 +73,69 @@ export function Navbar({ user }: { user: SessionUser }) {
 
       <div className="flex items-center gap-3">
         <OfflineIndicator />
+
+        {showsMessages && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative"
+                aria-label={unreadTotal > 0 ? `Messages, ${unreadTotal} non lus` : "Messages"}
+              >
+                <MessageSquare className="w-5 h-5" />
+                {unreadTotal > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 px-1 text-xs"
+                  >
+                    {unreadTotal > 99 ? "99+" : unreadTotal}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuLabel>Messages non lus</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <div className="max-h-[300px] overflow-y-auto">
+                {threads.length === 0 ? (
+                  <p className="p-3 text-sm text-muted-foreground">Aucun message non lu.</p>
+                ) : (
+                  threads.map((thread) => (
+                    <DropdownMenuItem key={thread.patientId} className="flex flex-col items-start gap-1 p-3">
+                      <div className="flex items-start justify-between w-full gap-2">
+                        <span className="text-sm font-medium truncate">{thread.patientName}</span>
+                        <Badge variant="destructive" className="shrink-0">
+                          {thread.unread}
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-muted-foreground line-clamp-2">
+                        {thread.lastSenderName} : {thread.lastMessage}
+                      </span>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setSoundEnabled(!isSoundEnabled)}>
+                {isSoundEnabled ? <Volume2 className="w-4 h-4 mr-2" /> : <VolumeX className="w-4 h-4 mr-2" />}
+                {isSoundEnabled ? "Couper le son" : "Activer le son"}
+              </DropdownMenuItem>
+              {permission === "default" && (
+                <DropdownMenuItem onClick={requestPermission}>
+                  <Bell className="w-4 h-4 mr-2" />
+                  Autoriser les notifications
+                </DropdownMenuItem>
+              )}
+              {permission === "denied" && (
+                <DropdownMenuItem disabled>
+                  <BellOff className="w-4 h-4 mr-2" />
+                  Notifications bloquées par le navigateur
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {showsAlerts && (
           <DropdownMenu>

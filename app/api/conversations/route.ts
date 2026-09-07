@@ -18,6 +18,9 @@ export async function GET() {
       select: {
         id: true,
         name: true,
+        // `userId` dit si la patiente a un compte: sans compte, elle ne peut ni
+        // répondre ni décrocher, et l'interface doit masquer les boutons d'appel.
+        userId: true,
         messages: { orderBy: { createdAt: "desc" }, take: 1, select: { body: true, createdAt: true } },
         _count: { select: { messages: { where: { senderId: { not: user.id }, readAt: null } } } },
       },
@@ -30,6 +33,7 @@ export async function GET() {
         lastMessage: patient.messages[0]?.body ?? null,
         lastMessageAt: patient.messages[0]?.createdAt.toISOString() ?? null,
         unread: patient._count.messages,
+        canReply: patient.userId !== null,
       }))
       .sort((a, b) => {
         if (a.lastMessageAt && b.lastMessageAt) return b.lastMessageAt.localeCompare(a.lastMessageAt)

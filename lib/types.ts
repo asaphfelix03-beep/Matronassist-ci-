@@ -126,6 +126,27 @@ export interface Conversation {
   lastMessage: string | null
   lastMessageAt: string | null
   unread: number
+  /** Faux si la patiente n'a pas de compte: elle ne peut ni répondre ni être appelée. */
+  canReply: boolean
+}
+
+/** Fil porteur de messages non lus, tel que remonté par les notifications. */
+export interface UnreadThread {
+  patientId: string
+  patientName: string
+  unread: number
+  /** Identifie le dernier message reçu: sert à ne notifier qu'une fois. */
+  lastMessageId: string
+  lastMessage: string
+  lastSenderName: string
+  lastMessageAt: string
+}
+
+/** Tout ce qui doit réveiller l'interface, en une seule lecture. */
+export interface NotificationSnapshot {
+  threads: UnreadThread[]
+  unreadTotal: number
+  incomingCall: CallSession | null
 }
 
 export type CallStatus = "ringing" | "active" | "ended" | "declined" | "missed"
