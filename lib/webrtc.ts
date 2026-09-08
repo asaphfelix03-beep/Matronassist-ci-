@@ -26,6 +26,24 @@ export function buildIceServers(): RTCIceServer[] {
   return servers
 }
 
+/** Vrai si un relais TURN est configuré. */
+export function hasTurnServer(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_TURN_URL)
+}
+
+/**
+ * Message affiché quand la négociation ICE échoue.
+ *
+ * Sans TURN, l'échec est attendu derrière un NAT symétrique — cas fréquent sur
+ * les réseaux mobiles. Le dire explicitement évite de chercher la panne du côté
+ * de l'appareil, et indique la seule correction possible.
+ */
+export function describeConnectionFailure(): string {
+  return hasTurnServer()
+    ? "La connexion n'a pas pu être établie. Vérifiez votre réseau, puis rappelez."
+    : "La connexion n'a pas pu être établie. Ce réseau mobile empêche l'appel direct : un serveur relais (TURN) doit être configuré pour que ces appels aboutissent."
+}
+
 /** Vrai si le navigateur expose les API nécessaires à un appel. */
 export function supportsCalls(): boolean {
   return (

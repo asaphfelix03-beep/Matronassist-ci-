@@ -253,6 +253,10 @@ export const sendMessage = (patientId: string, body: string) =>
  */
 export const fetchNotifications = () => request<NotificationSnapshot>("/api/notifications")
 
+/** Marque des appels manqués comme vus; sans identifiants, tous le sont. */
+export const acknowledgeMissedCalls = (callIds?: string[]) =>
+  post<{ acknowledged: number }>("/api/calls/missed", callIds ? { callIds } : {})
+
 // --- Appels (WebRTC) --------------------------------------------------------
 
 export const startCall = (patientId: string, withVideo: boolean) =>

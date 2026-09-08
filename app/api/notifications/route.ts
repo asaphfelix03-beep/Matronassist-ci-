@@ -3,12 +3,15 @@ import { handleRouteError, ok, requireUser } from "@/lib/api-auth"
 import { expireStaleCalls } from "@/lib/calls"
 import { prisma } from "@/lib/prisma"
 import { serializeCall } from "@/lib/serializers"
-import type { NotificationSnapshot, UnreadThread } from "@/lib/types"
+import type { MissedCall, NotificationSnapshot, UnreadThread } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
 /** Au-delà, la liste déroulante devient illisible: le compteur suffit. */
 const MAX_THREADS = 12
+
+/** Un appel manqué plus ancien n'a plus d'intérêt opérationnel. */
+const MISSED_CALL_WINDOW_MS = 48 * 60 * 60 * 1000
 
 /**
  * Instantané unique de tout ce qui doit réveiller l'interface: messages non lus
@@ -28,13 +31,13 @@ export async function GET() {
 
     // L'administration suit le réseau mais ne participe ni aux fils ni aux appels.
     if (user.role === "admin") {
-      const empty: NotificationSnapshot = { threads: [], unreadTotal: 0, incomingCall: null }
+      const empty: NotificationSnapshot = { threads: [], unreadTotal: 0, incomingCall: null, missedCalls: [] }
       return ok(empty)
     }
 
     await expireStaleCalls()
 
-    const [unreadMessages, ringing] = await Promise.all([
+    const [unreadMessages, ringing, missed] = await Promise.all([
       prisma.message.findMany({
         where: { patient: scope, senderId: { not: user.id }, readAt: null },
         orderBy: { createdAt: "desc" },
@@ -50,6 +53,20 @@ export async function GET() {
       prisma.call.findFirst({
         where: { status: "ringing", callerId: { not: user.id }, patient: scope },
         orderBy: { createdAt: "desc" },
+        include: { patient: { select: { name: true } }, caller: { select: { name: true } } },
+      }),
+      // Appels que l'utilisateur n'a pas décrochés et n'a pas encore vus. Les
+      // appels refusés sont exclus: refuser est un choix, pas un oubli.
+      prisma.call.findMany({
+        where: {
+          status: "missed",
+          callerId: { not: user.id },
+          acknowledgedAt: null,
+          patient: scope,
+          createdAt: { gte: new Date(Date.now() - MISSED_CALL_WINDOW_MS) },
+        },
+        orderBy: { createdAt: "desc" },
+        take: MAX_THREADS,
         include: { patient: { select: { name: true } }, caller: { select: { name: true } } },
       }),
     ])
@@ -80,10 +97,20 @@ export async function GET() {
       .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
       .slice(0, MAX_THREADS)
 
+    const missedCalls: MissedCall[] = missed.map((call) => ({
+      id: call.id,
+      patientId: call.patientId,
+      patientName: call.patient.name,
+      callerName: call.caller.name,
+      withVideo: call.withVideo,
+      createdAt: call.createdAt.toISOString(),
+    }))
+
     const snapshot: NotificationSnapshot = {
       threads,
       unreadTotal: unreadMessages.length,
       incomingCall: ringing ? serializeCall(ringing, user.id) : null,
+      missedCalls,
     }
 
     return ok(snapshot)

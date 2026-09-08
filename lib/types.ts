@@ -155,11 +155,27 @@ export interface UnreadThread {
   lastMessageAt: string
 }
 
+/**
+ * Appel qui n'a pas été décroché, tant que le destinataire ne l'a pas vu.
+ *
+ * Un appel raté venant d'une femme enceinte doit rester visible: c'est parfois
+ * le seul signe d'une urgence.
+ */
+export interface MissedCall {
+  id: string
+  patientId: string
+  patientName: string
+  callerName: string
+  withVideo: boolean
+  createdAt: string
+}
+
 /** Tout ce qui doit réveiller l'interface, en une seule lecture. */
 export interface NotificationSnapshot {
   threads: UnreadThread[]
   unreadTotal: number
   incomingCall: CallSession | null
+  missedCalls: MissedCall[]
 }
 
 export type CallStatus = "ringing" | "active" | "ended" | "declined" | "missed"

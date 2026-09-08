@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { answerCall, fetchCall, fetchSignals, sendSignal } from "@/lib/api-client"
 import type { CallSession } from "@/lib/types"
-import { buildIceServers, describeMediaError } from "@/lib/webrtc"
+import { buildIceServers, describeConnectionFailure, describeMediaError } from "@/lib/webrtc"
 
 /** Cadence de sondage des signaux pendant la négociation. */
 const SIGNAL_POLL_MS = 1000
@@ -135,7 +135,7 @@ export function CallPanel({ call, onClose }: { call: CallSession; onClose: () =>
         }
 
         if (peer.connectionState === "failed" || peer.iceConnectionState === "failed") {
-          setError("La connexion n'a pas pu être établie. Un réseau restrictif peut bloquer l'appel.")
+          setError(describeConnectionFailure())
           setPhase("ended")
         }
       }

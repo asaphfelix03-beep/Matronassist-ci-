@@ -3,7 +3,19 @@
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
-import { Bell, BellOff, KeyRound, LogOut, MessageSquare, Moon, Sun, User, Volume2, VolumeX } from "lucide-react"
+import {
+  Bell,
+  BellOff,
+  KeyRound,
+  LogOut,
+  MessageSquare,
+  Moon,
+  PhoneMissed,
+  Sun,
+  User,
+  Volume2,
+  VolumeX,
+} from "lucide-react"
 
 import { useNotifications } from "@/components/notification-center"
 import { OfflineIndicator } from "@/components/offline-indicator"
@@ -21,6 +33,16 @@ import { useToast } from "@/hooks/use-toast"
 import { fetchAlerts, logout } from "@/lib/api-client"
 import type { SessionUser, SystemAlert } from "@/lib/types"
 
+/** Date courte avec l'heure: un appel manqué se situe à la minute près. */
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrateur",
   matrone: "Matrone",
@@ -33,7 +55,19 @@ export function Navbar({ user }: { user: SessionUser }) {
   const router = useRouter()
   const { toast } = useToast()
   const { resolvedTheme, setTheme } = useTheme()
-  const { threads, unreadTotal, permission, requestPermission, isSoundEnabled, setSoundEnabled } = useNotifications()
+  const {
+    threads,
+    unreadTotal,
+    missedCalls,
+    dismissMissedCalls,
+    permission,
+    requestPermission,
+    isSoundEnabled,
+    setSoundEnabled,
+  } = useNotifications()
+
+  // Une seule pastille pour tout ce qui attend: messages non lus et appels ratés.
+  const pendingTotal = unreadTotal + missedCalls.length
 
   // Le thème résolu n'est connu qu'après hydratation: on n'affiche l'icône
   // correspondante qu'à ce moment, sinon le rendu serveur et client divergent.
@@ -81,20 +115,52 @@ export function Navbar({ user }: { user: SessionUser }) {
                 variant="ghost"
                 size="icon"
                 className="relative"
-                aria-label={unreadTotal > 0 ? `Messages, ${unreadTotal} non lus` : "Messages"}
+                aria-label={
+                  pendingTotal > 0
+                    ? `Notifications : ${unreadTotal} message(s) non lu(s), ${missedCalls.length} appel(s) manqué(s)`
+                    : "Notifications"
+                }
               >
                 <MessageSquare className="w-5 h-5" />
-                {unreadTotal > 0 && (
+                {pendingTotal > 0 && (
                   <Badge
                     variant="destructive"
                     className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 px-1 text-xs"
                   >
-                    {unreadTotal > 99 ? "99+" : unreadTotal}
+                    {pendingTotal > 99 ? "99+" : pendingTotal}
                   </Badge>
                 )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
+              {missedCalls.length > 0 && (
+                <>
+                  <DropdownMenuLabel className="flex items-center justify-between gap-2">
+                    <span className="text-destructive">Appels manqués</span>
+                    <button
+                      type="button"
+                      onClick={dismissMissedCalls}
+                      className="text-xs font-normal underline text-muted-foreground"
+                    >
+                      Tout marquer vu
+                    </button>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {missedCalls.map((call) => (
+                    <DropdownMenuItem key={call.id} className="flex items-start gap-2 p-3">
+                      <PhoneMissed className="w-4 h-4 mt-0.5 shrink-0 text-destructive" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">{call.callerName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {call.withVideo ? "Appel vidéo" : "Appel"} — {formatDateTime(call.createdAt)}
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                </>
+              )}
+
               <DropdownMenuLabel>Messages non lus</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <div className="max-h-[300px] overflow-y-auto">

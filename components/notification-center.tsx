@@ -1,11 +1,14 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { Bell, X } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
 
 import { useToast } from "@/hooks/use-toast"
-import { fetchNotifications } from "@/lib/api-client"
+import { acknowledgeMissedCalls, fetchNotifications } from "@/lib/api-client"
 import { chime } from "@/lib/sound"
-import type { CallSession, NotificationSnapshot, UnreadThread, UserRole } from "@/lib/types"
+import type { CallSession, MissedCall, NotificationSnapshot, UnreadThread, UserRole } from "@/lib/types"
 
 /**
  * Cadence de sondage. L'onglet masqué continue d'être surveillé — c'est
@@ -15,13 +18,17 @@ import type { CallSession, NotificationSnapshot, UnreadThread, UserRole } from "
 const POLL_VISIBLE_MS = 3000
 const POLL_HIDDEN_MS = 15000
 
-const EMPTY: NotificationSnapshot = { threads: [], unreadTotal: 0, incomingCall: null }
+const EMPTY: NotificationSnapshot = { threads: [], unreadTotal: 0, incomingCall: null, missedCalls: [] }
 
 interface NotificationContextValue {
   threads: UnreadThread[]
   unreadTotal: number
   /** Appel entrant détecté par le sondage, consommé par le module d'appel. */
   incomingCall: CallSession | null
+  /** Appels non décrochés, tant que l'utilisateur ne les a pas vus. */
+  missedCalls: MissedCall[]
+  /** Marque les appels manqués comme vus. */
+  dismissMissedCalls: () => void
   /** Force une relecture immédiate, sans attendre le prochain tour. */
   refresh: () => void
   /** Retire un fil du compteur dès son ouverture, avant confirmation serveur. */
@@ -47,6 +54,7 @@ export function useNotifications(): NotificationContextValue {
 }
 
 const SOUND_KEY = "matronassist.notifications.sound"
+const PROMPT_DISMISSED_KEY = "matronassist.notifications.prompt-dismissed"
 
 /**
  * Notification système, silencieuse si l'autorisation n'a pas été accordée.
@@ -162,16 +170,37 @@ export function NotificationProvider({ role, children }: { role: UserRole; child
     [toast],
   )
 
+  /** Signale les appels ratés qui n'ont pas encore été annoncés. */
+  const announceMissed = useCallback(
+    (calls: MissedCall[]) => {
+      const announced = announcedRef.current
+      const fresh = calls.filter((call) => !announced.has(`call-${call.id}`))
+      for (const call of calls) announced.add(`call-${call.id}`)
+
+      if (isFirstLoadRef.current || fresh.length === 0) return
+
+      for (const call of fresh) {
+        const title = `Appel manqué de ${call.callerName}`
+        const body = `${call.withVideo ? "Appel vidéo" : "Appel"} non décroché — ${call.patientName}`
+        toast({ title, description: body })
+        if (document.hidden) void notifySystem(title, body, `missed-${call.id}`)
+      }
+    },
+    [toast],
+  )
+
   const load = useCallback(async () => {
     try {
       const next = await fetchNotifications()
       setSnapshot(next)
+      // L'ordre compte: `announce` retombe le drapeau de premier chargement.
+      announceMissed(next.missedCalls)
       announce(next.threads)
     } catch {
       // Une itération ratée n'interrompt pas la surveillance: hors ligne, la
       // suivante reprendra dès le retour du réseau.
     }
-  }, [announce])
+  }, [announce, announceMissed])
 
   const loadRef = useRef(load)
   useEffect(() => {
@@ -215,6 +244,13 @@ export function NotificationProvider({ role, children }: { role: UserRole; child
     loadRef.current()
   }, [])
 
+  const dismissMissedCalls = useCallback(() => {
+    // Retiré de l'affichage aussitôt: l'utilisateur vient de les voir, attendre
+    // le serveur ferait clignoter la pastille.
+    setSnapshot((prev) => (prev.missedCalls.length === 0 ? prev : { ...prev, missedCalls: [] }))
+    acknowledgeMissedCalls().catch(() => undefined)
+  }, [])
+
   const setActiveThread = useCallback((patientId: string | null) => {
     activeThreadRef.current = patientId
   }, [])
@@ -236,6 +272,8 @@ export function NotificationProvider({ role, children }: { role: UserRole; child
       threads: snapshot.threads,
       unreadTotal: snapshot.unreadTotal,
       incomingCall: snapshot.incomingCall,
+      missedCalls: snapshot.missedCalls,
+      dismissMissedCalls,
       refresh,
       clearThread,
       setActiveThread,
@@ -244,8 +282,87 @@ export function NotificationProvider({ role, children }: { role: UserRole; child
       isSoundEnabled,
       setSoundEnabled,
     }),
-    [snapshot, refresh, clearThread, setActiveThread, permission, requestPermission, isSoundEnabled, setSoundEnabled],
+    [
+      snapshot,
+      dismissMissedCalls,
+      refresh,
+      clearThread,
+      setActiveThread,
+      permission,
+      requestPermission,
+      isSoundEnabled,
+      setSoundEnabled,
+    ],
   )
 
-  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>
+  return (
+    <NotificationContext.Provider value={value}>
+      {children}
+      {participates && <PermissionPrompt />}
+    </NotificationContext.Provider>
+  )
+}
+
+/**
+ * Invitation à autoriser les notifications système.
+ *
+ * Sans autorisation, un message ou un appel reçu pendant que l'application est
+ * en arrière-plan passe totalement inaperçu. Les navigateurs exigeant un geste
+ * de l'utilisateur pour la demander, un bandeau avec bouton est le seul moyen.
+ * Refusée une fois, l'invitation ne revient plus.
+ */
+function PermissionPrompt() {
+  const { permission, requestPermission } = useNotifications()
+  const [isDismissed, setIsDismissed] = useState(true)
+
+  useEffect(() => {
+    try {
+      setIsDismissed(localStorage.getItem(PROMPT_DISMISSED_KEY) === "1")
+    } catch {
+      setIsDismissed(false)
+    }
+  }, [])
+
+  const dismiss = () => {
+    setIsDismissed(true)
+    try {
+      localStorage.setItem(PROMPT_DISMISSED_KEY, "1")
+    } catch {
+      // Sans stockage, l'invitation reparaîtra à la prochaine session.
+    }
+  }
+
+  if (isDismissed || permission !== "default") return null
+
+  return (
+    <div className="fixed inset-x-0 bottom-20 z-[80] px-4 md:bottom-6 md:left-auto md:right-6 md:px-0">
+      <div className="mx-auto flex w-full max-w-sm items-start gap-3 rounded-2xl border bg-card p-4 shadow-lg">
+        <Bell className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold">Être prévenue des messages et des appels</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Sans cette autorisation, rien ne vous signalera un message ou un appel quand l&apos;application n&apos;est pas
+            à l&apos;écran.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => {
+                requestPermission()
+                dismiss()
+              }}
+            >
+              Autoriser
+            </Button>
+            <Button size="sm" variant="ghost" onClick={dismiss}>
+              Plus tard
+            </Button>
+          </div>
+        </div>
+        <button type="button" onClick={dismiss} aria-label="Fermer" className="text-muted-foreground">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
 }

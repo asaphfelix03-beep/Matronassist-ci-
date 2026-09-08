@@ -173,6 +173,9 @@ model Call {
   withVideo Boolean   @default(false)
   startedAt DateTime?
   endedAt   DateTime?
+  /// Renseigné quand le destinataire a vu l'appel manqué: sans cette date, un
+  /// appel raté resterait signalé indéfiniment.
+  acknowledgedAt DateTime?
   createdAt DateTime  @default(now())
 
   signals CallSignal[]
