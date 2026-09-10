@@ -264,3 +264,8 @@ traiter selon votre contexte réglementaire :
 - Les appels ne sont ni enregistrés ni journalisés au-delà de leurs métadonnées ;
   si votre cadre impose une traçabilité des téléconsultations, elle reste à
   ajouter.
+
+## Licence
+
+Distribué sous licence [MIT](LICENSE) : utilisation, modification et
+redistribution libres, à condition de conserver la mention de copyright.
