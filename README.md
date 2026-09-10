@@ -19,12 +19,21 @@ L'application utilise **PostgreSQL** en développement comme en production. Une
 base gratuite (Neon, Supabase, Vercel Postgres) suffit pour démarrer.
 
 ```bash
-cp .env.example .env          # puis renseigner DATABASE_URL
+cp .env.example .env          # puis renseigner DATABASE_URL et DIRECT_URL
 npm install                   # génère le client Prisma automatiquement
 npm run db:migrate            # crée les tables
 npm run create-admin -- --email admin@structure.ci --name "Nom Prénom"
 npm run dev
 ```
+
+Les **deux** variables sont obligatoires, sans quoi Prisma refuse de lire le
+schéma :
+
+- `DATABASE_URL` : la connexion de l'application, qui peut passer par un pool.
+- `DIRECT_URL` : la connexion directe, utilisée par les migrations. `prisma
+  migrate` exécute du DDL, qu'un pool en mode transaction (Neon, Supabase,
+  Vercel Postgres) n'accepte pas. **Sans pool, reprenez la même valeur que
+  `DATABASE_URL`.**
 
 `create-admin` affiche un mot de passe provisoire **une seule fois**.
 Connectez-vous avec sur `/login` : l'application impose d'en choisir un nouveau
